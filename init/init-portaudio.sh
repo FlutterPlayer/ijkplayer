@@ -16,12 +16,12 @@
 # limitations under the License.
 #
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASEDIR=$(dirname "$DIR")
 
-PORTAUDIO_UPSTREAM=https://git.assembla.com/portaudio.git
-PORTAUDIO_FORK=https://git.assembla.com/portaudio.git
-PORTAUDIO_COMMIT=396fe4b6699ae929d3a685b3ef8a7e97396139a4
+PORTAUDIO_UPSTREAM=https://github.com/PortAudio/portaudio.git
+PORTAUDIO_FORK=https://github.com/PortAudio/portaudio.git
+PORTAUDIO_COMMIT=ccd16c85e64d8c1a5462541388b6fbcaedbb1cad
 PORTAUDIO_LOCAL_REPO=$BASEDIR/extra/portaudio
 
 set -e

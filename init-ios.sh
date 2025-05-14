@@ -19,7 +19,7 @@
 # IJK_FFMPEG_UPSTREAM=git://git.videolan.org/ffmpeg.git
 IJK_FFMPEG_UPSTREAM=https://github.com/Bilibili/FFmpeg.git
 IJK_FFMPEG_FORK=https://github.com/FlutterPlayer/FFmpeg.git
-IJK_FFMPEG_COMMIT=ff4.0-20230611
+IJK_FFMPEG_COMMIT=ff4.0-20250514
 IJK_FFMPEG_LOCAL_REPO=extra/ffmpeg
 
 IJK_GASP_UPSTREAM=https://github.com/Bilibili/gas-preprocessor.git
@@ -28,12 +28,12 @@ IJK_GASP_UPSTREAM=https://github.com/Bilibili/gas-preprocessor.git
 # https://github.com/Bilibili/gas-preprocessor.git
 
 if [ "$IJK_FFMPEG_REPO_URL" != "" ]; then
-    IJK_FFMPEG_UPSTREAM=$IJK_FFMPEG_REPO_URL
-    IJK_FFMPEG_FORK=$IJK_FFMPEG_REPO_URL
+	IJK_FFMPEG_UPSTREAM=$IJK_FFMPEG_REPO_URL
+	IJK_FFMPEG_FORK=$IJK_FFMPEG_REPO_URL
 fi
 
 if [ "$IJK_GASP_REPO_URL" != "" ]; then
-    IJK_GASP_UPSTREAM=$IJK_GASP_REPO_URL
+	IJK_GASP_UPSTREAM=$IJK_GASP_REPO_URL
 fi
 
 set -e
@@ -52,51 +52,49 @@ FF_ALL_ARCHS=$FF_ALL_ARCHS_IOS12_SDK
 FF_TARGET=$1
 
 function echo_ffmpeg_version() {
-    echo $IJK_FFMPEG_COMMIT
+	echo $IJK_FFMPEG_COMMIT
 }
 
 function pull_common() {
-    git --version
-    echo "== pull gas-preprocessor base =="
-    sh $TOOLS/pull-repo-base.sh $IJK_GASP_UPSTREAM extra/gas-preprocessor
+	git --version
+	echo "== pull gas-preprocessor base =="
+	sh $TOOLS/pull-repo-base.sh $IJK_GASP_UPSTREAM extra/gas-preprocessor
 
-    echo "== pull ffmpeg base =="
-    sh $TOOLS/pull-repo-base.sh $IJK_FFMPEG_UPSTREAM $IJK_FFMPEG_LOCAL_REPO
+	echo "== pull ffmpeg base =="
+	sh $TOOLS/pull-repo-base.sh $IJK_FFMPEG_UPSTREAM $IJK_FFMPEG_LOCAL_REPO
 }
 
 function pull_fork() {
-    echo "== pull ffmpeg fork $1 =="
-    sh $TOOLS/pull-repo-ref.sh $IJK_FFMPEG_FORK ios/ffmpeg-$1 ${IJK_FFMPEG_LOCAL_REPO}
-    cd ios/ffmpeg-$1
-    git checkout ${IJK_FFMPEG_COMMIT} -B ijkplayer
-    cd -
+	echo "== pull ffmpeg fork $1 =="
+	sh $TOOLS/pull-repo-ref.sh $IJK_FFMPEG_FORK ios/ffmpeg-$1 ${IJK_FFMPEG_LOCAL_REPO}
+	cd ios/ffmpeg-$1
+	git checkout ${IJK_FFMPEG_COMMIT} -B ijkplayer
+	cd -
 }
 
 function pull_fork_all() {
-    for ARCH in $FF_ALL_ARCHS
-    do
-        pull_fork $ARCH
-    done
+	for ARCH in $FF_ALL_ARCHS; do
+		pull_fork $ARCH
+	done
 }
 
 function sync_ff_version() {
-    sed -i '' "s/static const char \*kIJKFFRequiredFFmpegVersion\ \=\ .*/static const char *kIJKFFRequiredFFmpegVersion = \"${IJK_FFMPEG_COMMIT}\";/g" ios/IJKMediaPlayer/IJKMediaPlayer/IJKFFMoviePlayerController.m
+	sed -i '' "s/static const char \*kIJKFFRequiredFFmpegVersion\ \=\ .*/static const char *kIJKFFRequiredFFmpegVersion = \"${IJK_FFMPEG_COMMIT}\";/g" ios/IJKMediaPlayer/IJKMediaPlayer/IJKFFMoviePlayerController.m
 }
 
 #----------
 case "$FF_TARGET" in
-    ffmpeg-version)
-        echo_ffmpeg_version
-    ;;
-    armv7|armv7s|arm64|i386|x86_64)
-        pull_common
-        pull_fork $FF_TARGET
-    ;;
-    all|*)
-        pull_common
-        pull_fork_all
-    ;;
+ffmpeg-version)
+	echo_ffmpeg_version
+	;;
+armv7 | armv7s | arm64 | i386 | x86_64)
+	pull_common
+	pull_fork $FF_TARGET
+	;;
+all | *)
+	pull_common
+	pull_fork_all
+	;;
 esac
 
 sync_ff_version
-
