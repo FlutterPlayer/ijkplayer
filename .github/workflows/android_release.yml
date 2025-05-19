@@ -19,7 +19,7 @@ jobs:
 
     - name: Setup ndk
       run: |
-        yes 2>/dev/null | sudo $ANDROID_HOME/tools/bin/sdkmanager --install "ndk;21.1.6352462" "cmake;3.10.2.4988404"
+        yes 2>/dev/null | sudo sdkmanager --install "ndk;21.1.6352462" "cmake;3.10.2.4988404"
 
     - name: Init extra for android
       run: |
