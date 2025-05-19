@@ -1,11 +1,11 @@
 apply plugin: 'com.android.application'
 
 android {
+    namespace 'tv.danmaku.ijk.media.example'
+    compileSdk 30
+
     // http://tools.android.com/tech-docs/new-build-system/tips
     //noinspection GroovyAssignabilityCheck
-    compileSdkVersion rootProject.ext.compileSdkVersion
-    //noinspection GroovyAssignabilityCheck
-    buildToolsVersion rootProject.ext.buildToolsVersion
     ndkVersion rootProject.ext.ndkVersion
     lintOptions {
         abortOnError false
@@ -15,7 +15,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode rootProject.ext.versionCode
         versionName rootProject.ext.versionName
-        minSdkVersion 16
+        minSdk 19
 
         ndk {
             // Specifies the ABI configurations of your native
@@ -72,7 +72,7 @@ dependencies {
 
 
     implementation project(':fijkplayer-full')
-    implementation project(':ijkplayer-exo')
+//    implementation project(':ijkplayer-exo')
 
     //all32Implementation
     //all32Implementation project(':ijkplayer-armv5')

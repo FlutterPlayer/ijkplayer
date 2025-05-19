@@ -13,8 +13,8 @@ def safePropGet = { prop, fallback ->
 }
 
 android {
-    compileSdkVersion rootProject.ext.compileSdkVersion
-    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk 34
+    namespace 'tv.danmaku.ijk.media.player'
 
     ndkVersion rootProject.ext.ndkVersion
 
@@ -22,8 +22,14 @@ android {
         abortOnError false
     }
 
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
     defaultConfig {
-        minSdkVersion 16
+        minSdk 19
+
         targetSdkVersion rootProject.ext.targetSdkVersion
 
         externalNativeBuild {
