@@ -34,16 +34,16 @@ jobs:
       - name: Install NDK and CMake
         run: |
           yes | sudo "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
-            "ndk;25.2.9519653" "cmake;3.22.1"
+            "ndk;29.0.14206865" "cmake;3.22.1"
       - name: Init Android dependencies
         run: |
-          export ANDROID_NDK="$ANDROID_HOME/ndk/25.2.9519653"
+          export ANDROID_NDK="$ANDROID_HOME/ndk/29.0.14206865"
           bash scripts/init/init-android.sh
           bash scripts/init/init-android-boringssl.sh
           bash scripts/init/init-android-libsrt.sh
       - name: Build Android dependencies
         run: |
-          export ANDROID_NDK="$ANDROID_HOME/ndk/25.2.9519653"
+          export ANDROID_NDK="$ANDROID_HOME/ndk/29.0.14206865"
           bash scripts/build/android/compile-boringssl.sh all
           bash scripts/build/android/compile-ffmpeg.sh all
       - name: Build Android AAR
@@ -55,7 +55,7 @@ jobs:
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.SIGN_KEY }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGN_PASSWORD }}
         run: |
-          export ANDROID_NDK="$ANDROID_HOME/ndk/25.2.9519653"
+          export ANDROID_NDK="$ANDROID_HOME/ndk/29.0.14206865"
           ./gradlew :library:assembleRelease -PVERSION_NAME="${RELEASE_TAG}"
           if [ -n "${NEXUS_PASSWORD:-}" ]; then
             ./gradlew -PVERSION_NAME="${RELEASE_TAG}" :library:publish

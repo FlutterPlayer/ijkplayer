@@ -71,7 +71,7 @@ macOS, Windows and OpenHarmony.
 
 | Platform | Dependencies |
 | --- | --- |
-| Android | JDK 17, NDK 25.2.9519653, CMake 3.22.1, Gradle wrapper |
+| Android | JDK 17, NDK 29.0.14206865, CMake 3.22.1, Gradle wrapper |
 | iOS / macOS | Xcode command-line tools, `gas-preprocessor` (fetched by the init scripts), `cmake`, `yasm` |
 | Windows | Visual Studio 2022, vcpkg, CMake |
 | OpenHarmony | OpenHarmony SDK with the native toolchain; `OHOS_SDK` points at `native/` |
@@ -100,7 +100,9 @@ cd ../..
 
 The AAR is `build/android/gradle/library/outputs/aar/fplayercore-release.aar`.
 The AAR contains the Java API and the single `libijkplayer.so` (arm64-v8a);
-FFmpeg is linked statically.
+FFmpeg is linked statically. Android builds use NDK 29+ and
+`-Wl,-z,max-page-size=16384`, so every `LOAD` segment in the shared library
+is 16 KB aligned for Google Play's 16 KB page-size requirement.
 
 ## Build iOS
 

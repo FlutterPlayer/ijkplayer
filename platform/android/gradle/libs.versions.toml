@@ -1,6 +1,6 @@
 [versions]
 agp = "8.7.3"
-ndk = "25.2.9519653"
+ndk = "29.0.14206865"
 cmake = "3.22.1"
 compileSdk = "34"
 minSdk = "28"
