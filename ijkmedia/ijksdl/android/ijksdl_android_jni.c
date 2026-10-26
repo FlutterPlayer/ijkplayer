@@ -25,10 +25,9 @@
 #include "ijksdl_android_jni.h"
 
 #include <unistd.h>
+#include <pthread.h>
 #include "j4a/class/android/os/Build.h"
 #include "ijksdl_inc_internal_android.h"
-#include "ijksdl_codec_android_mediaformat_java.h"
-#include "ijksdl_codec_android_mediacodec_java.h"
 
 static JavaVM *g_jvm;
 
@@ -171,32 +170,9 @@ void SDL_JNI_DeleteLocalRefP(JNIEnv *env, jobject *obj_ptr)
 }
 
 
-int SDL_Android_GetApiLevel()
-{
-    static int SDK_INT = 0;
-    if (SDK_INT > 0)
-        return SDK_INT;
-
-    JNIEnv *env = NULL;
-    if (JNI_OK != SDL_JNI_SetupThreadEnv(&env)) {
-        ALOGE("SDL_Android_GetApiLevel: SetupThreadEnv failed");
-        return 0;
-    }
-
-    SDK_INT = J4AC_android_os_Build__VERSION__SDK_INT__get__catchAll(env);
-    ALOGI("API-Level: %d\n", SDK_INT);
-    return SDK_INT;
-#if 0
-    char value[PROP_VALUE_MAX];
-    memset(value, 0, sizeof(value));
-    __system_property_get("ro.build.version.sdk", value);
-    SDK_INT = atoi(value);
-    return SDK_INT;
-#endif
-}
-
-
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
+// On Android the whole native stack is linked into libijkplayer.so, so the
+// JVM only sees one JNI_OnLoad: ijkplayer's, which calls this initializer.
+jint ijksdl_JNI_OnLoad(JavaVM *vm, void *reserved)
 {
     int retval;
     JNIEnv* env = NULL;
@@ -212,6 +188,6 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
     return JNI_VERSION_1_4;
 }
 
-JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *jvm, void *reserved)
+void ijksdl_JNI_OnUnload(JavaVM *jvm, void *reserved)
 {
 }

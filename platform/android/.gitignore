@@ -1,0 +1,26 @@
+# Gradle / AGP
+.gradle/
+build/
+local.properties
+.externalNativeBuild/
+.cxx/
+
+# 签名
+keystore.properties
+*.jks
+*.keystore
+
+# 产物
+*.apk
+*.ap_
+*.dex
+*.class
+*.log
+*.hprof
+Symbols.zip
+/captures
+proguard/
+
+# IDE
+.idea/
+*.iml

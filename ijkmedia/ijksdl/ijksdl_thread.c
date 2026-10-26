@@ -35,7 +35,7 @@
 
 #include "libavutil/avstring.h"
 
-#if !defined(__APPLE__)
+#if !defined(__APPLE__) && !defined(WIN32)
 // using ios implement for autorelease
 static void *SDL_RunThread(void *data)
 {

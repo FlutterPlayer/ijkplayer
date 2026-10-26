@@ -1,0 +1,16 @@
+{
+  global:
+    av_*;
+    avpriv_*;
+    avcodec_*;
+    avformat_*;
+    avutil_*;
+    sws_*;
+    swr_*;
+    SDL_*;
+    ijk_*;
+    ijksdl_*;
+    ff_*;
+  local:
+    *;
+};

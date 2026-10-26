@@ -23,7 +23,6 @@
 
 #include "ffpipeline_android.h"
 #include <jni.h>
-#include "ffpipenode_android_mediacodec_vdec.h"
 #include "../../pipeline/ffpipenode_ffplay_vdec.h"
 #include "../../ff_ffplay.h"
 #include "ijksdl/android/ijksdl_android_jni.h"
@@ -43,9 +42,6 @@ typedef struct IJKFF_Pipeline_Opaque {
     void          *mediacodec_select_callback_opaque;
 
     SDL_Vout      *weak_vout;
-
-    float          left_volume;
-    float          right_volume;
 } IJKFF_Pipeline_Opaque;
 
 static void func_destroy(IJKFF_Pipeline *pipeline)
@@ -67,52 +63,30 @@ fail:
 
 static IJKFF_Pipenode *func_open_video_decoder(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
 {
-    IJKFF_Pipeline_Opaque *opaque = pipeline->opaque;
-    IJKFF_Pipenode        *node = NULL;
-
-    if (ffp->mediacodec_all_videos || ffp->mediacodec_avc || ffp->mediacodec_hevc || ffp->mediacodec_mpeg2)
-        node = ffpipenode_create_video_decoder_from_android_mediacodec(ffp, pipeline, opaque->weak_vout);
-    if (!node) {
-        node = ffpipenode_create_video_decoder_from_ffplay(ffp);
-    }
-
-    return node;
+    return ffpipenode_create_video_decoder_from_ffplay(ffp);
 }
 
 static SDL_Aout *func_open_audio_output(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
 {
-    SDL_Aout *aout = NULL;
-    if (ffp->opensles) {
-        aout = SDL_AoutAndroid_CreateForOpenSLES();
-    } else {
-        aout = SDL_AoutAndroid_CreateForAudioTrack();
+    if (ffp->aaudio && !ffp->opensles) {
+        SDL_Aout *fallback = SDL_AoutAndroid_CreateForOpenSLES();
+        SDL_Aout *aout = SDL_AoutAndroid_CreateForAAudio(fallback);
+        if (aout)
+            return aout;
+        return fallback;
     }
-    if (aout)
-        SDL_AoutSetStereoVolume(aout, pipeline->opaque->left_volume, pipeline->opaque->right_volume);
-    return aout;
+
+    return SDL_AoutAndroid_CreateForOpenSLES();
 }
 
 static IJKFF_Pipenode *func_init_video_decoder(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
 {
-    IJKFF_Pipeline_Opaque *opaque = pipeline->opaque;
-    IJKFF_Pipenode        *node = NULL;
-
-    if (ffp->mediacodec_all_videos || ffp->mediacodec_avc || ffp->mediacodec_hevc || ffp->mediacodec_mpeg2)
-        node = ffpipenode_init_decoder_from_android_mediacodec(ffp, pipeline, opaque->weak_vout);
-
-    return node;
+    return NULL;
 }
 
 static int func_config_video_decoder(IJKFF_Pipeline *pipeline, FFPlayer *ffp)
 {
-    IJKFF_Pipeline_Opaque *opaque = pipeline->opaque;
-    int                       ret = 0;
-
-    if (ffp->node_vdec) {
-        ret = ffpipenode_config_from_android_mediacodec(ffp, pipeline, opaque->weak_vout, ffp->node_vdec);
-    }
-
-    return ret;
+    return 0;
 }
 
 
@@ -141,8 +115,6 @@ IJKFF_Pipeline *ffpipeline_create_from_android(FFPlayer *ffp)
     IJKFF_Pipeline_Opaque *opaque = pipeline->opaque;
     opaque->ffp                   = ffp;
     opaque->surface_mutex         = SDL_CreateMutex();
-    opaque->left_volume           = 1.0f;
-    opaque->right_volume          = 1.0f;
     if (!opaque->surface_mutex) {
         ALOGE("ffpipeline-android:create SDL_CreateMutex failed\n");
         goto fail;
@@ -224,7 +196,6 @@ int ffpipeline_set_surface(JNIEnv *env, IJKFF_Pipeline* pipeline, jobject surfac
             // same object, no need to reconfigure
             ALOGI("%s(), same object, no need to reconfigure\n", __func__);
         } else {
-            SDL_VoutAndroid_setAMediaCodec(opaque->weak_vout, NULL);
             if (surface) {
                 opaque->jsurface = (*env)->NewGlobalRef(env, surface);
             } else {
@@ -279,19 +250,4 @@ bool ffpipeline_select_mediacodec_l(IJKFF_Pipeline* pipeline, ijkmp_mediacodecin
         return false;
 
     return pipeline->opaque->mediacodec_select_callback(pipeline->opaque->mediacodec_select_callback_opaque, mcc);
-}
-
-void ffpipeline_set_volume(IJKFF_Pipeline* pipeline, float left, float right)
-{
-    ALOGD("%s\n", __func__);
-    if (!check_ffpipeline(pipeline, __func__))
-        return;
-
-    IJKFF_Pipeline_Opaque *opaque = pipeline->opaque;
-    opaque->left_volume  = left;
-    opaque->right_volume = right;
-
-    if (opaque->ffp && opaque->ffp->aout) {
-        SDL_AoutSetStereoVolume(opaque->ffp->aout, left, right);
-    }
 }

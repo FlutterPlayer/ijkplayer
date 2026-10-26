@@ -46,12 +46,6 @@ void SDL_AoutFlushAudio(SDL_Aout *aout)
         aout->flush_audio(aout);
 }
 
-void SDL_AoutSetStereoVolume(SDL_Aout *aout, float left_volume, float right_volume)
-{
-    if (aout && aout->set_volume)
-        aout->set_volume(aout, left_volume, right_volume);
-}
-
 void SDL_AoutCloseAudio(SDL_Aout *aout)
 {
     if (aout && aout->close_audio)
@@ -103,14 +97,6 @@ void SDL_AoutSetPlaybackRate(SDL_Aout *aout, float playbackRate)
     if (aout) {
         if (aout->func_set_playback_rate)
             aout->func_set_playback_rate(aout, playbackRate);
-    }
-}
-
-void SDL_AoutSetPlaybackVolume(SDL_Aout *aout, float volume)
-{
-    if (aout) {
-        if (aout->func_set_playback_volume)
-            aout->func_set_playback_volume(aout, volume);
     }
 }
 

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 # Usage: version.sh <ijplayer-root-dir> <output-version.h>
 

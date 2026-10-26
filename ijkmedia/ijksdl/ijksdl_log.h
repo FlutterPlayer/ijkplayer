@@ -92,4 +92,20 @@ void ijk_log_vprint(int level, const char *tag, const char *fmt, va_list ap);
 #define ALOGE(...)  ALOG(IJK_LOG_ERROR,     IJK_LOG_TAG, __VA_ARGS__)
 #define LOG_ALWAYS_FATAL(...)   do { ALOGE(__VA_ARGS__); exit(1); } while (0)
 
+#ifndef LOGV
+#define LOGV(...) ALOGV(__VA_ARGS__)
+#endif
+#ifndef LOGD
+#define LOGD(...) ALOGD(__VA_ARGS__)
+#endif
+#ifndef LOGI
+#define LOGI(...) ALOGI(__VA_ARGS__)
+#endif
+#ifndef LOGW
+#define LOGW(...) ALOGW(__VA_ARGS__)
+#endif
+#ifndef LOGE
+#define LOGE(...) ALOGE(__VA_ARGS__)
+#endif
+
 #endif

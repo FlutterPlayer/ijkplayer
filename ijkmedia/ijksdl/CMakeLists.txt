@@ -32,6 +32,8 @@ set(BASE_SOURCES
     ijksdl_inc_internal.h
     ijksdl_log.c
     ijksdl_log.h
+    ijksdl_rectangle.c
+    ijksdl_rectangle.h
     ijksdl_aout.c
     ijksdl_aout.h
     ijksdl_aout_internal.h
@@ -53,96 +55,89 @@ set(BASE_SOURCES
 
     ffmpeg/ijksdl_vout_overlay_ffmpeg.c
     ffmpeg/ijksdl_vout_overlay_ffmpeg.h
-    ffmpeg/ijksdl_image_convert.h
     ffmpeg/ijksdl_inc_ffmpeg.h
-    ffmpeg/abi_all/image_convert.c
 
     dummy/ijksdl_vout_dummy.c
     dummy/ijksdl_vout_dummy.h
     dummy/ijksdl_dummy.h
 )
 
+set(SDL_OHOS_SOURCES
+    ohos/ijksdl_egl.c
+    ohos/ijksdl_egl.h
+    ohos/ijksdl_gles2.h
+    ohos/ijksdl_ohos.h
+    ohos/ijksdl_inc_internal_ohos.h
+    ohos/ijksdl_vout_ohos_nativewindow.c
+    ohos/ijksdl_vout_ohos_nativewindow.h
+    ohos/ijksdl_vout_overlay_ohos_avcodec.c
+    ohos/ijksdl_vout_overlay_ohos_avcodec.h
+    ohos/ijksdl_aout_ohos.c
+    ohos/ijksdl_aout_ohos.h
+    ohos/gles2/color.c
+    ohos/gles2/common.c
+    ohos/gles2/internal.h
+    ohos/gles2/renderer.c
+    ohos/gles2/renderer_rgb.c
+    ohos/gles2/renderer_yuv420p.c
+    ohos/gles2/renderer_yuv420sp.c
+    ohos/gles2/renderer_yuv444p10le.c
+    ohos/gles2/shader.c
+    ohos/gles2/fsh/rgb.fsh.c
+    ohos/gles2/fsh/yuv420p.fsh.c
+    ohos/gles2/fsh/yuv420sp.fsh.c
+    ohos/gles2/fsh/yuv444p10le.fsh.c
+    ohos/gles2/vsh/mvp.vsh.c
+)
+
 set(SDL_ANDROID_EXTRA_SOURCES
     ijksdl_extra_log.c
     ijksdl_extra_log.h
-    android/android_audiotrack.c
-    android/android_nativewindow.c
     android/ijksdl_android_jni.c
-    android/ijksdl_aout_android_audiotrack.c
+    android/ijksdl_aout_android_aaudio.c
+    android/ijksdl_aout_android_aaudio.h
     android/ijksdl_aout_android_opensles.c
-    android/ijksdl_codec_android_mediacodec_dummy.c
-    android/ijksdl_codec_android_mediacodec_internal.c
-    android/ijksdl_codec_android_mediacodec_java.c
-    android/ijksdl_codec_android_mediacodec.c
-    android/ijksdl_codec_android_mediadef.c
-    android/ijksdl_codec_android_mediaformat_java.c
-    android/ijksdl_codec_android_mediaformat.c
-    android/ijksdl_vout_android_nativewindow.c
-    android/ijksdl_vout_android_surface.c
-    android/ijksdl_vout_overlay_android_mediacodec.c
+    android/ijksdl_android_image_reader.c
+    android/ijksdl_vout_android_vulkan.c
+    android/vulkan/fs_vulkan_renderer.c
+    android/vulkan/ijksdl_gpu_vulkan.c
 )
 
-set(SDL_DESKTOP_UNI_SOURCES
-    desktop/ijksdl_desktop.h
-    desktop/ijksdl_aout_port_audio.h
-    desktop/ijksdl_aout_port_audio.c
-    desktop/ijksdl_aout_sdl2_audio.c
-    desktop/ijksdl_aout_sdl2_audio.h
-    desktop/ijksdl_vout_uni_callback.c
-    desktop/ijksdl_vout_uni_callback.h
+set(SDL_WINDOWS_UNI_SOURCES
+    windows/ijksdl_windows.h
+    windows/ijksdl_aout_sdl2_audio.c
+    windows/ijksdl_aout_sdl2_audio.h
+    windows/ijksdl_vout_uni_callback.c
+    windows/ijksdl_vout_uni_callback.h
 
-    desktop/ijksdl_vout_sdl2_video.c
-    desktop/ijksdl_vout_sdl2_video.h
+    windows/ijksdl_vout_sdl2_video.c
+    windows/ijksdl_vout_sdl2_video.h
 )
-
-if (IJK_GLFW)
-    list(APPEND SDL_DESKTOP_UNI_SOURCES
-            desktop/ijksdl_desktop_vout_glfw.c
-            desktop/ijksdl_desktop_vout_glfw.h
-            desktop/ijksdl_desktop_gl.c
-            desktop/ijksdl_desktop_gl.h
-            )
-endif ()
 
 set(SDL_MAC_OSX_SOURCES
-    ${IJKROOT_PATH}/ios/IJKMediaPlayer/IJKMediaPlayer/ijkmedia/ijksdl/ios/ijksdl_thread_ios.h
-    ${IJKROOT_PATH}/ios/IJKMediaPlayer/IJKMediaPlayer/ijkmedia/ijksdl/ios/ijksdl_thread_ios.m
+    ${IJKROOT_PATH}/ijkmedia/ijksdl/apple/ios/ijksdl_thread_ios.h
+    ${IJKROOT_PATH}/ijkmedia/ijksdl/apple/ios/ijksdl_thread_ios.m
 )
-
-set(GLES2_SOURCES
-    ijksdl_egl.c
-    gles2/color.c
-    gles2/common.c
-    gles2/renderer.c
-    gles2/renderer_rgb.c
-    gles2/renderer_yuv420p.c
-    gles2/renderer_yuv444p10le.c
-    gles2/shader.c
-    gles2/fsh/rgb.fsh.c
-    gles2/fsh/yuv420p.fsh.c
-    gles2/fsh/yuv444p10le.fsh.c
-    gles2/vsh/mvp.vsh.c
-)
-
 
 set(IJK_SDL_SOURCES ${BASE_SOURCES})
 
-if (ANDROID)
-    list(APPEND GLES2_SOURCES gles2/renderer_amc.c)
-    list(APPEND GLES2_SOURCES gles2/fsh/amc.fsh.cpp)
-    list(APPEND GLES2_SOURCES gles2/vsh/amc.vsh.c)
-    set(IJK_SDL_SOURCES ${IJK_SDL_SOURCES} ${SDL_ANDROID_EXTRA_SOURCES} ${GLES2_SOURCES})
+if (IJK_OHOS)
+    set(IJK_SDL_SOURCES ${IJK_SDL_SOURCES} ${SDL_OHOS_SOURCES})
+    add_definitions(-D__OHOS__=1)
 endif ()
 
-if (IJK_DESKTOP_UNI)
-    find_package(SDL2 REQUIRED)
+if (ANDROID)
+    set(IJK_SDL_SOURCES ${IJK_SDL_SOURCES} ${SDL_ANDROID_EXTRA_SOURCES})
+endif ()
 
-    set(IJK_SDL_SOURCES ${IJK_SDL_SOURCES} ${SDL_DESKTOP_UNI_SOURCES} ${GLES2_SOURCES})
-    if (APPLE AND IJK_DESKTOP_UNI)
+if (IJK_WINDOWS_UNI)
+    if (NOT WIN32)
+        find_package(SDL2 REQUIRED)
+    endif ()
+
+    set(IJK_SDL_SOURCES ${IJK_SDL_SOURCES} ${SDL_WINDOWS_UNI_SOURCES})
+    if (APPLE AND IJK_WINDOWS_UNI)
         set(IJK_SDL_SOURCES ${IJK_SDL_SOURCES} ${SDL_MAC_OSX_SOURCES})
-        # list(APPEND IJK_SDL_SOURCES gles2/renderer_yuv420sp.c)
-        # list(APPEND IJK_SDL_SOURCES gles2/fsh/yuv420sp.fsh.c)
-
     endif ()
     add_library(ijksdl_static STATIC ${IJK_SDL_SOURCES})
     set(IJKSDL_LIB_NAME ijksdl_static)
@@ -150,34 +145,29 @@ if (IJK_DESKTOP_UNI)
     target_include_directories(ijksdl_static PRIVATE ${SDL2_INCLUDE_DIRS})
     cmake_print_variables(SDL2_INCLUDE_DIRS)
 
-    target_include_directories(ijksdl_static PRIVATE ${IJKROOT_PATH}/desktop/glfw/include)
-    target_include_directories(ijksdl_static PRIVATE ${IJKROOT_PATH}/desktop/glad/include)
-    target_include_directories(ijksdl_static PRIVATE ${IJKROOT_PATH}/desktop/glfw/deps)
+elseif (ANDROID)
+    # Static so that the whole native stack ends up in a single libijkplayer.so.
+    add_library(ijksdl STATIC ${IJK_SDL_SOURCES})
+    set(IJKSDL_LIB_NAME ijksdl)
 else ()
     add_library(ijksdl SHARED ${IJK_SDL_SOURCES})
     set(IJKSDL_LIB_NAME ijksdl)
 endif ()
 
 target_include_directories(${IJKSDL_LIB_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+target_include_directories(${IJKSDL_LIB_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/ohos)
 target_include_directories(${IJKSDL_LIB_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
 
-if(IJK_DESKTOP_UNI)
-    target_include_directories(${IJKSDL_LIB_NAME} PRIVATE "${IJKROOT_PATH}/ijkmedia/portaudio/include")
-    target_include_directories(${IJKSDL_LIB_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../ijkyuv/include)
-endif()
-
-if (IJK_GLFW)
-    target_link_libraries(${IJKSDL_LIB_NAME} glfw)
-endif ()
-
 if (WIN32)
-    target_include_directories(${IJKSDL_LIB_NAME} PRIVATE "${IJK_DESKTOP_PTHREAD_BUILD_DIR}/../../include")
+    target_include_directories(${IJKSDL_LIB_NAME} PRIVATE "${IJK_WINDOWS_PTHREAD_BUILD_DIR}/../../include")
 endif()
 
 #include ffmpeg header files
 target_include_directories(${IJKSDL_LIB_NAME} PRIVATE ${IJK_FFMPAG_BUILD_DIR}/include)
 
-target_compile_options(${IJKSDL_LIB_NAME} PUBLIC "-Werror")
+if (NOT WIN32 AND NOT IJK_OHOS)
+    target_compile_options(${IJKSDL_LIB_NAME} PUBLIC "-Werror")
+endif ()
 if (ANDROID)
     # build cpufeatures as a static lib
     # add_library(cpufeatures STATIC
@@ -185,7 +175,6 @@ if (ANDROID)
 
     # include(AndroidNdkModules)
     # android_ndk_import_module_cpufeatures()
-    target_include_directories(${IJKSDL_LIB_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../ijkyuv/include)
     target_include_directories(${IJKSDL_LIB_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../ijkj4a)
 endif ()
 
@@ -193,7 +182,9 @@ if (ANDROID)
     target_link_libraries(${IJKSDL_LIB_NAME} ijkffmpeg)
     target_link_libraries(${IJKSDL_LIB_NAME} ijkj4a)
     # target_link_libraries(ijksdl cpufeatures)
-    target_link_libraries(${IJKSDL_LIB_NAME} yuv_static)
-    target_link_libraries(${IJKSDL_LIB_NAME} log android OpenSLES EGL GLESv2)
+    target_link_libraries(${IJKSDL_LIB_NAME} log android mediandk OpenSLES aaudio vulkan)
 endif ()
 
+if (IJK_OHOS)
+    target_link_libraries(${IJKSDL_LIB_NAME} EGL GLESv3 native_window ohaudio hilog_ndk.z)
+endif ()

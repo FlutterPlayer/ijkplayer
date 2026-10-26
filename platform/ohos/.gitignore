@@ -1,0 +1,6 @@
+oh_modules/
+.hvigor/
+.cxx/
+build/
+local.properties
+*.har

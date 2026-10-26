@@ -28,11 +28,13 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 #include <stdio.h>
 #ifndef WIN32
 #include <unistd.h>
 #else
 #include <io.h>
+#define fsync _commit
 #endif
 
 #define CONFIG_MAX_LINE 1024

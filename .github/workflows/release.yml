@@ -1,0 +1,230 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to build and release
+        required: true
+        type: string
+      build_ohos:
+        description: Build the OpenHarmony HAR on a [self-hosted, ohos] runner
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install NDK and CMake
+        run: |
+          yes | sudo "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "ndk;25.2.9519653" "cmake;3.22.1"
+      - name: Init Android dependencies
+        run: |
+          export ANDROID_NDK="$ANDROID_HOME/ndk/25.2.9519653"
+          bash scripts/init/init-android.sh
+          bash scripts/init/init-android-boringssl.sh
+          bash scripts/init/init-android-libsrt.sh
+      - name: Build Android dependencies
+        run: |
+          export ANDROID_NDK="$ANDROID_HOME/ndk/25.2.9519653"
+          bash scripts/build/android/compile-boringssl.sh all
+          bash scripts/build/android/compile-ffmpeg.sh all
+      - name: Build Android AAR
+        working-directory: platform/android
+        env:
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME || 'bileskou' }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingKeyId: ${{ secrets.SIGN_KEYID }}
+          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.SIGN_KEY }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGN_PASSWORD }}
+        run: |
+          export ANDROID_NDK="$ANDROID_HOME/ndk/25.2.9519653"
+          ./gradlew :library:assembleRelease -PVERSION_NAME="${RELEASE_TAG}"
+          if [ -n "${NEXUS_PASSWORD:-}" ]; then
+            ./gradlew -PVERSION_NAME="${RELEASE_TAG}" :library:publish
+          fi
+      - name: Collect Android assets
+        run: |
+          bash scripts/collect.sh android
+          cp build/android/artifacts/fplayercore-release.aar .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: fplayercore-release.aar
+          if-no-files-found: error
+
+  apple:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Init iOS dependencies
+        run: |
+          brew install yasm nasm cmake
+          bash scripts/init/init-ios.sh
+          bash scripts/init/init-ios-openssl.sh
+      - name: Build iOS dependencies
+        run: |
+          bash scripts/build/ios/compile-openssl.sh all
+          bash scripts/build/ios/compile-ffmpeg.sh all
+      - name: Build iOS XCFramework
+        run: |
+          xcodebuild -project platform/ios/IJKMediaPlayer/IJKMediaPlayer.xcodeproj \
+            -scheme fplayercore -configuration Release -sdk iphoneos -arch arm64 \
+            -derivedDataPath build/xcode-ios-iphoneos CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -project platform/ios/IJKMediaPlayer/IJKMediaPlayer.xcodeproj \
+            -scheme fplayercore -configuration Release -sdk iphonesimulator -arch arm64 \
+            -derivedDataPath build/xcode-ios-simulator CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -create-xcframework \
+            -framework build/xcode-ios-iphoneos/Build/Products/Release-iphoneos/fplayercore.framework \
+            -framework build/xcode-ios-simulator/Build/Products/Release-iphonesimulator/fplayercore.framework \
+            -output fplayercore.xcframework
+          ditto -c -k --keepParent fplayercore.xcframework fplayercore-ios.xcframework.zip
+          tar -czf fplayercore-ios.tar.gz fplayercore.xcframework
+      - name: Init macOS dependencies
+        run: |
+          brew install openssl@3
+          if [ ! -e /opt/homebrew/opt/openssl/lib/libssl.a ]; then
+            sudo ln -sfn "$(brew --prefix openssl@3)" /opt/homebrew/opt/openssl
+          fi
+          bash scripts/init/init-osx.sh
+          bash scripts/build/macos/compile-ffmpeg.sh all
+      - name: Build macOS XCFramework
+        run: |
+          xcodebuild -project platform/macos/IJKMediaPlayer/IJKMediaPlayer.xcodeproj \
+            -scheme fplayercore -configuration Release -arch arm64 \
+            -derivedDataPath build/xcode-macos CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -create-xcframework \
+            -framework build/xcode-macos/Build/Products/Release/fplayercore.framework \
+            -output fplayercore.xcframework
+          ditto -c -k --keepParent fplayercore.xcframework fplayercore-macos.xcframework.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apple
+          path: |
+            fplayercore-ios.xcframework.zip
+            fplayercore-ios.tar.gz
+            fplayercore-macos.xcframework.zip
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare Windows dependencies
+        shell: pwsh
+        run: .\scripts\windows\prepare-deps.ps1 -VcpkgRoot $env:VCPKG_INSTALLATION_ROOT
+      - name: Build Windows kernel
+        shell: pwsh
+        run: .\scripts\windows\build-windows.ps1 -VcpkgRoot $env:VCPKG_INSTALLATION_ROOT
+      - name: Package Windows kernel
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force fplayercore | Out-Null
+          Copy-Item build/windows/bin -Destination fplayercore -Recurse
+          Copy-Item build/windows/lib -Destination fplayercore -Recurse
+          Copy-Item build/windows/include -Destination fplayercore -Recurse
+          Compress-Archive -Path fplayercore -DestinationPath fplayercore-windows.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: fplayercore-windows.zip
+          if-no-files-found: error
+
+  ohos:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_ohos == 'true'
+    runs-on: [self-hosted, ohos]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build OHOS dependencies
+        run: bash scripts/build/ohos/compile-ffmpeg.sh arm64
+      - name: Package OHOS HAR
+        run: bash scripts/build/ohos/package-har.sh
+      - name: Stage OHOS asset
+        run: cp build/ohos/fplayercore-ohos.har "$GITHUB_WORKSPACE/fplayercore-ohos.har"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ohos
+          path: fplayercore-ohos.har
+          if-no-files-found: error
+
+  release:
+    if: >-
+      always() &&
+      needs.android.result == 'success' &&
+      needs.apple.result == 'success' &&
+      needs.windows.result == 'success' &&
+      (needs.ohos.result == 'success' || needs.ohos.result == 'skipped')
+    needs:
+      - android
+      - apple
+      - windows
+      - ohos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: android
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: apple
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows
+          path: dist
+      - uses: actions/download-artifact@v4
+        if: needs.ohos.result == 'success'
+        with:
+          name: ohos
+          path: dist
+      - name: Generate manifest
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+
+          root = "dist"
+          assets = []
+          for name in sorted(os.listdir(root)):
+              path = os.path.join(root, name)
+              if not os.path.isfile(path) or name == "fplayercore-manifest.json":
+                  continue
+              assets.append({
+                  "name": name,
+                  "sha256": hashlib.sha256(open(path, "rb").read()).hexdigest(),
+              })
+          manifest = {
+              "version": os.environ["RELEASE_TAG"],
+              "commit": os.environ["GITHUB_SHA"],
+              "assets": assets,
+          }
+          with open(os.path.join(root, "fplayercore-manifest.json"), "w") as handle:
+              json.dump(manifest, handle, indent=2)
+              handle.write("\n")
+          PY
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Release ${{ env.RELEASE_TAG }}
+          files: dist/*
+          fail_on_unmatched_files: true

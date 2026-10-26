@@ -40,12 +40,4 @@ void SDL_CalculateAudioSpec(SDL_AudioSpec * spec)
     spec->size *= spec->samples;
 }
 
-void SDL_MixAudio(Uint8*       dst,
-                  const Uint8* src,
-                  Uint32       len,
-                  int          volume)
-{
-    // do nothing;
-}
-
 #endif

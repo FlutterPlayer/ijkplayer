@@ -20,8 +20,8 @@
 
 cmake_minimum_required(VERSION 3.6)
 
-project("IjkPlayer")
+project("fplayercore")
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 11)
-add_subdirectory(desktop)
+add_subdirectory(platform/windows)

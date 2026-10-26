@@ -1,0 +1,10 @@
+{
+  "module": {
+    "name": "fplayercore_ohos",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet"
+    ]
+  }
+}

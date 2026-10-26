@@ -1,51 +1,51 @@
-# -----
+# ===== 构建产物（统一输出根）=====
 build/
+!scripts/build/
+!scripts/build/**
+
+# ===== 临时文件 / 第三方源码缓存 =====
 ffmpeg-temp/
-android/ffmpeg-*
-android/openssl-*
-ios/ffmpeg-*
-ios/openssl-*
-extra
+/extra/
+
+# ===== 工具 / IDE / OS =====
+.omo/
+.cache/
+.idea/
+.gradle/
+cmake-build*/
+xcuserdata/
+xcshareddata/
+*.xccheckout
 .DS_Store
-ijkmedia/ijkyuv/
-ijkmedia/ijksoundtouch/
-ijkmedia/portaudio/
-ijkprof/android-ndk-profiler/
+._*
 
-
-# built application files
+# ===== 通用产物 =====
 *.apk
 *.ap_
-
-# files for the dex VM
 *.dex
-
-# Java class files
 *.class
-
-# generated files
+*.hprof
+*.log
+Symbols.zip
+local.properties
 bin/
 gen/
-libs/
-obj/
+proguard/
+
+# ===== 生成文件 =====
 ijkmedia/ijkplayer/ijkversion.h
 
-# Local configuration file (sdk path, etc)
-local.properties
-
-# Android Studio
-.idea
-.gradle
-
-# Xcode
-xcuserdata
-xcshareddata
-*.xccheckout
+# ===== init 拉取的第三方源码 =====
+ijkmedia/ijksoundtouch/
 
 
-# osx
-# osx/
-cmake-build-debug/
-cmake-build-release/
-
-.cache/
+# AI tool related (local only)
+.codegraph/
+.omo/
+.claude/
+.cursor/
+.cursorignore
+.windsurf/
+.cline/
+.aider*
+.continue/

@@ -24,16 +24,11 @@
 
 #include <stdbool.h>
 #include <assert.h>
-#include <math.h>
-#include <inttypes.h>
-#include <jni.h>
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
 #include "../ijksdl_inc_internal.h"
 #include "../ijksdl_thread.h"
 #include "../ijksdl_aout_internal.h"
-#include "ijksdl_android_jni.h"
-#include "android_audiotrack.h"
 
 #ifdef SDLTRACE
 #undef SDLTRACE
@@ -41,7 +36,7 @@
 //#define SDLTRACE ALOGW
 #endif
 
-#define OPENSLES_BUFFERS 255 /* maximum number of buffers */
+#define OPENSLES_BUFFERS 8 /* 10 ms per buffer, about 80 ms queued */
 #define OPENSLES_BUFLEN  10 /* ms */
 
 static SDL_Class g_opensles_class = {
@@ -69,12 +64,7 @@ typedef struct SDL_Aout_Opaque {
 
     SLObjectItf                     slPlayerObject;
     SLAndroidSimpleBufferQueueItf   slBufferQueueItf;
-    SLVolumeItf                     slVolumeItf;
     SLPlayItf                       slPlayItf;
-
-    volatile bool  need_set_volume;
-    volatile float left_volume;
-    volatile float right_volume;
 
     volatile bool  abort_request;
     volatile bool  pause_on;
@@ -103,25 +93,11 @@ typedef struct SDL_Aout_Opaque {
         } \
     } while (0)
 
-static inline SLmillibel android_amplification_to_sles(float volumeLevel) {
-    // FIXME use the FX Framework conversions
-    if (volumeLevel < 0.00000001)
-        return SL_MILLIBEL_MIN;
-
-    SLmillibel mb = lroundf(2000.f * log10f(volumeLevel));
-    if (mb < SL_MILLIBEL_MIN)
-        mb = SL_MILLIBEL_MIN;
-    else if (mb > 0)
-        mb = 0; /* maximum supported level could be higher: GetMaxVolumeLevel */
-    return mb;
-}
-
 static int aout_thread_n(SDL_Aout *aout)
 {
     SDL_Aout_Opaque               *opaque           = aout->opaque;
     SLPlayItf                      slPlayItf        = opaque->slPlayItf;
     SLAndroidSimpleBufferQueueItf  slBufferQueueItf = opaque->slBufferQueueItf;
-    SLVolumeItf                    slVolumeItf      = opaque->slVolumeItf;
     SDL_AudioCallback              audio_cblk       = opaque->spec.callback;
     void                          *userdata         = opaque->spec.userdata;
     uint8_t                       *next_buffer      = NULL;
@@ -165,22 +141,6 @@ static int aout_thread_n(SDL_Aout *aout)
         if (opaque->need_flush) {
             opaque->need_flush = 0;
             (*slBufferQueueItf)->Clear(slBufferQueueItf);
-        }
-#if 0
-        if (opaque->need_set_volume) {
-            opaque->need_set_volume = 0;
-            // FIXME: set volume here
-        }
-#endif
-        if (opaque->need_set_volume) {
-            opaque->need_set_volume = 0;
-            SLmillibel level = android_amplification_to_sles((opaque->left_volume + opaque->right_volume) / 2);
-            ALOGI("slVolumeItf->SetVolumeLevel((%f, %f) -> %d)\n", opaque->left_volume, opaque->right_volume, (int)level);
-            slRet = (*slVolumeItf)->SetVolumeLevel(slVolumeItf, level);
-            if (slRet != SL_RESULT_SUCCESS) {
-                ALOGE("slVolumeItf->SetVolumeLevel failed %d\n", (int)slRet);
-                // just ignore error
-            }
         }
         SDL_UnlockMutex(opaque->wakeup_mutex);
 
@@ -256,8 +216,6 @@ static void aout_close_audio(SDL_Aout *aout)
 
     if (opaque->slBufferQueueItf)
         opaque->slBufferQueueItf = NULL;
-    if (opaque->slVolumeItf)
-        opaque->slVolumeItf      = NULL;
     if (opaque->slPlayItf)
         opaque->slPlayItf        = NULL;
 
@@ -314,28 +272,9 @@ static int aout_open_audio(SDL_Aout *aout, const SDL_AudioSpec *desired, SDL_Aud
         OPENSLES_BUFFERS
     };
 
-    int native_sample_rate = audiotrack_get_native_output_sample_rate(NULL);
-    ALOGI("OpenSL-ES: native sample rate %d Hz\n", native_sample_rate);
-
     CHECK_COND_ERROR((desired->format == AUDIO_S16SYS), "%s: not AUDIO_S16SYS", __func__);
     CHECK_COND_ERROR((desired->channels == 2 || desired->channels == 1), "%s: not 1,2 channel", __func__);
     CHECK_COND_ERROR((desired->freq >= 8000 && desired->freq <= 48000), "%s: unsupport freq %d Hz", __func__, desired->freq);
-    if (SDL_Android_GetApiLevel() < IJK_API_21_LOLLIPOP &&
-        native_sample_rate > 0 &&
-        desired->freq < native_sample_rate) {
-        // Don't try to play back a sample rate higher than the native one,
-        // since OpenSL ES will try to use the fast path, which AudioFlinger
-        // will reject (fast path can't do resampling), and will end up with
-        // too small buffers for the resampling. See http://b.android.com/59453
-        // for details. This bug is still present in 4.4. If it is fixed later
-        // this workaround could be made conditional.
-        //
-        // by VLC/android_opensles.c
-        ALOGW("OpenSL-ES: force resample %lu to native sample rate %d\n",
-              (unsigned long) format_pcm->samplesPerSec / 1000,
-              (int) native_sample_rate);
-        format_pcm->samplesPerSec = native_sample_rate * 1000;
-    }
 
     format_pcm->formatType       = SL_DATAFORMAT_PCM;
     format_pcm->numChannels      = desired->channels;
@@ -368,8 +307,8 @@ static int aout_open_audio(SDL_Aout *aout, const SDL_AudioSpec *desired, SDL_Aud
     SLDataSink audio_sink = {&loc_outmix, NULL};
 
     SLObjectItf slPlayerObject = NULL;
-    const SLInterfaceID ids2[] = { SL_IID_ANDROIDSIMPLEBUFFERQUEUE, SL_IID_VOLUME, SL_IID_PLAY };
-    static const SLboolean req2[] = { SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE };
+    const SLInterfaceID ids2[] = { SL_IID_ANDROIDSIMPLEBUFFERQUEUE, SL_IID_PLAY };
+    static const SLboolean req2[] = { SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE };
     ret = (*slEngine)->CreateAudioPlayer(slEngine, &slPlayerObject, &audio_source,
                                 &audio_sink, sizeof(ids2) / sizeof(*ids2),
                                 ids2, req2);
@@ -381,9 +320,6 @@ static int aout_open_audio(SDL_Aout *aout, const SDL_AudioSpec *desired, SDL_Aud
 
     ret = (*slPlayerObject)->GetInterface(slPlayerObject, SL_IID_PLAY, &opaque->slPlayItf);
     CHECK_OPENSL_ERROR(ret, "%s: slPlayerObject->GetInterface(SL_IID_PLAY) failed", __func__);
-
-    ret = (*slPlayerObject)->GetInterface(slPlayerObject, SL_IID_VOLUME, &opaque->slVolumeItf);
-    CHECK_OPENSL_ERROR(ret, "%s: slPlayerObject->GetInterface(SL_IID_VOLUME) failed", __func__);
 
     ret = (*slPlayerObject)->GetInterface(slPlayerObject, SL_IID_ANDROIDSIMPLEBUFFERQUEUE, &opaque->slBufferQueueItf);
     CHECK_OPENSL_ERROR(ret, "%s: slPlayerObject->GetInterface(SL_IID_ANDROIDSIMPLEBUFFERQUEUE) failed", __func__);
@@ -457,18 +393,6 @@ static void aout_flush_audio(SDL_Aout *aout)
     SDL_UnlockMutex(opaque->wakeup_mutex);
 }
 
-static void aout_set_volume(SDL_Aout *aout, float left_volume, float right_volume)
-{
-    SDL_Aout_Opaque *opaque = aout->opaque;
-    SDL_LockMutex(opaque->wakeup_mutex);
-    ALOGI("aout_set_volume(%f, %f)", left_volume, right_volume);
-    opaque->left_volume = left_volume;
-    opaque->right_volume = right_volume;
-    opaque->need_set_volume = 1;
-    SDL_CondSignal(opaque->wakeup_cond);
-    SDL_UnlockMutex(opaque->wakeup_mutex);
-}
-
 static double aout_get_latency_seconds(SDL_Aout *aout)
 {
     SDL_Aout_Opaque *opaque = aout->opaque;
@@ -512,9 +436,7 @@ SDL_Aout *SDL_AoutAndroid_CreateForOpenSLES()
     opaque->slEngine = slEngine;
 
     SLObjectItf slOutputMixObject = NULL;
-    const SLInterfaceID ids1[] = {SL_IID_VOLUME};
-    const SLboolean req1[] = {SL_BOOLEAN_FALSE};
-    ret = (*slEngine)->CreateOutputMix(slEngine, &slOutputMixObject, 1, ids1, req1);
+    ret = (*slEngine)->CreateOutputMix(slEngine, &slOutputMixObject, 0, NULL, NULL);
     CHECK_OPENSL_ERROR(ret, "%s: slEngine->CreateOutputMix() failed", __func__);
     opaque->slOutputMixObject = slOutputMixObject;
 
@@ -527,19 +449,10 @@ SDL_Aout *SDL_AoutAndroid_CreateForOpenSLES()
     aout->pause_audio  = aout_pause_audio;
     aout->flush_audio  = aout_flush_audio;
     aout->close_audio  = aout_close_audio;
-    aout->set_volume   = aout_set_volume;
     aout->func_get_latency_seconds = aout_get_latency_seconds;
 
     return aout;
 fail:
     aout_free_l(aout);
     return NULL;
-}
-
-bool SDL_AoutAndroid_IsObjectOfOpenSLES(SDL_Aout *aout)
-{
-    if (aout)
-        return false;
-
-    return aout->opaque_class == &g_opensles_class;
 }

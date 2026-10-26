@@ -32,7 +32,6 @@
 #include "../ijksdl_vout_internal.h"
 #include "../ijksdl_video.h"
 #include "ijksdl_inc_ffmpeg.h"
-#include "ijksdl_image_convert.h"
 
 struct SDL_VoutOverlay_Opaque {
     SDL_mutex *mutex;
@@ -165,6 +164,13 @@ static int func_fill_frame(SDL_VoutOverlay *overlay, const AVFrame *frame)
 
     av_frame_unref(opaque->linked_frame);
 
+#if defined(__ANDROID__)
+    if (frame->format == AV_PIX_FMT_MEDIACODEC) {
+        av_frame_ref(opaque->linked_frame, frame);
+        return 0;
+    }
+#endif
+
     int need_swap_uv = 0;
     int use_linked_frame = 0;
     enum AVPixelFormat dst_format = AV_PIX_FMT_NONE;
@@ -245,22 +251,9 @@ static int func_fill_frame(SDL_VoutOverlay *overlay, const AVFrame *frame)
 
 
     // swscale / direct draw
-    /*
-     ALOGE("ijk_image_convert w=%d, h=%d, df=%d, dd=%d, dl=%d, sf=%d, sd=%d, sl=%d",
-     (int)frame->width,
-     (int)frame->height,
-     (int)dst_format,
-     (int)swscale_dst_pic.data[0],
-     (int)swscale_dst_pic.linesize[0],
-     (int)frame->format,
-     (int)(const uint8_t**) frame->data,
-     (int)frame->linesize);
-     */
     if (use_linked_frame) {
         // do nothing
-    } else if (ijk_image_convert(frame->width, frame->height,
-                                 dst_format, swscale_dst_pic.data, swscale_dst_pic.linesize,
-                                 frame->format, (const uint8_t**) frame->data, frame->linesize)) {
+    } else {
         opaque->img_convert_ctx = sws_getCachedContext(opaque->img_convert_ctx,
                                                        frame->width, frame->height, frame->format, frame->width, frame->height,
                                                        dst_format, opaque->sws_flags, NULL, NULL, NULL);
@@ -271,15 +264,27 @@ static int func_fill_frame(SDL_VoutOverlay *overlay, const AVFrame *frame)
 
         sws_scale(opaque->img_convert_ctx, (const uint8_t**) frame->data, frame->linesize,
                   0, frame->height, swscale_dst_pic.data, swscale_dst_pic.linesize);
-
-        if (!opaque->no_neon_warned) {
-            opaque->no_neon_warned = 1;
-            ALOGE("non-neon image convert %s -> %s", av_get_pix_fmt_name(frame->format), av_get_pix_fmt_name(dst_format));
-        }
     }
     
     // TODO: 9 draw black if overlay is larger than screen
     return 0;
+}
+
+AVFrame *SDL_VoutFFmpeg_OverlayGetFrame(SDL_VoutOverlay *overlay)
+{
+    if (!overlay || !overlay->opaque)
+        return NULL;
+
+    SDL_VoutOverlay_Opaque *opaque = overlay->opaque;
+    AVFrame *linked_frame = opaque->linked_frame;
+    if (linked_frame && (linked_frame->buf[0] || linked_frame->data[0] || linked_frame->hw_frames_ctx))
+        return linked_frame;
+
+    AVFrame *managed_frame = opaque->managed_frame;
+    if (managed_frame && managed_frame->data[0])
+        return managed_frame;
+
+    return NULL;
 }
 
 static SDL_Class g_vout_overlay_ffmpeg_class = {

@@ -46,10 +46,12 @@
 #include "libavutil/avassert.h"
 #include "libavutil/time.h"
 #include "libavformat/avformat.h"
+#if defined(__ANDROID__)
+#include "libavcodec/bsf.h"
+#endif
 // FFP_MERGE: #include "libavdevice/avdevice.h"
 #include "libswscale/swscale.h"
 #include "libavutil/opt.h"
-#include "libavcodec/avfft.h"
 #include "libswresample/swresample.h"
 
 #if CONFIG_AVFILTER
@@ -102,7 +104,6 @@
 #define SDL_AUDIO_MAX_CALLBACKS_PER_SEC 30
 
 /* Step size for volume control */
-#define SDL_VOLUME_STEP (SDL_MIX_MAXVOLUME / 50)
 
 /* no AV sync correction is done if below the minimum AV sync threshold */
 #define AV_SYNC_THRESHOLD_MIN 0.04
@@ -193,8 +194,7 @@ typedef struct PacketQueue {
 
 typedef struct AudioParams {
     int freq;
-    int channels;
-    int64_t channel_layout;
+    AVChannelLayout ch_layout;
     enum AVSampleFormat fmt;
     int frame_size;
     int bytes_per_sec;
@@ -260,6 +260,10 @@ typedef struct Decoder {
     int packet_pending;
     int bfsc_ret;
     uint8_t *bfsc_data;
+#if defined(__ANDROID__)
+    AVBSFContext *bsf;
+    int bsf_insert_aud;
+#endif
 
     SDL_cond *empty_queue_cond;
     int64_t start_pts;
@@ -280,7 +284,7 @@ typedef enum ShowMode {
 
 typedef struct VideoState {
     SDL_Thread *read_tid;
-    AVInputFormat *iformat;
+    const AVInputFormat *iformat;
     int abort_request;
     int force_refresh;
     int paused;
@@ -290,6 +294,8 @@ typedef struct VideoState {
     int seek_flags;
     int64_t seek_pos;
     int64_t seek_rel;
+
+
 #ifdef FFP_MERGE
     int read_pause_return;
 #endif
@@ -329,8 +335,6 @@ typedef struct VideoState {
     unsigned int audio_new_buf_size;
     int audio_buf_index; /* in bytes */
     int audio_write_buf_size;
-    int audio_volume;
-    int muted;
     struct AudioParams audio_src;
 #if CONFIG_AVFILTER
     struct AudioParams audio_filter_src;
@@ -424,7 +428,7 @@ typedef struct VideoState {
 
 /* options specified by the user */
 #ifdef FFP_MERGE
-static AVInputFormat *file_iformat;
+static const AVInputFormat *file_iformat;
 static const char *input_filename;
 static const char *window_title;
 static int default_width  = 640;
@@ -568,7 +572,7 @@ typedef struct FFPlayer {
     AVDictionary *swr_opts;
     AVDictionary *swr_preset_opts;
     AVFormatContext *m_ofmt_ctx;        // 用于输出的AVFormatContext结构体
-    AVOutputFormat *m_ofmt;
+    const AVOutputFormat *m_ofmt;
     pthread_mutex_t record_mutex;       // 锁
     int is_record;                      // 是否在录制
     int record_error;
@@ -579,7 +583,7 @@ typedef struct FFPlayer {
 
     /* ffplay options specified by the user */
 #ifdef FFP_MERGE
-    AVInputFormat *file_iformat;
+    const AVInputFormat *file_iformat;
 #endif
     char *input_filename;
 #ifdef FFP_MERGE
@@ -692,6 +696,7 @@ typedef struct FFPlayer {
     int mediacodec_handle_resolution_change;
     int mediacodec_auto_rotate;
 
+    int aaudio;
     int opensles;
     int soundtouch_enable;
 
@@ -712,8 +717,10 @@ typedef struct FFPlayer {
     int         af_changed;
     float       pf_playback_rate;
     int         pf_playback_rate_changed;
-    float       pf_playback_volume;
-    int         pf_playback_volume_changed;
+    float       pf_playback_volume;        /* legacy single-value getter */
+    int         pf_playback_volume_user_set;
+    volatile int32_t pf_left_volume_q16;   /* 0..65536, applied by ff_ffplay.c */
+    volatile int32_t pf_right_volume_q16;
 
     void               *inject_opaque;
     void               *ijkio_inject_opaque;
@@ -804,7 +811,7 @@ inline static void ffp_reset_internal(FFPlayer *ffp)
     av_freep(&ffp->video_codec_info);
     av_freep(&ffp->audio_codec_info);
     av_freep(&ffp->subtitle_codec_info);
-    ffp->overlay_format         = SDL_FCC_RV32;
+    ffp->overlay_format         = SDL_FCC_I420;
 
     ffp->last_error             = 0;
     ffp->prepared               = 0;
@@ -823,7 +830,7 @@ inline static void ffp_reset_internal(FFPlayer *ffp)
     ffp->pictq_size                     = VIDEO_PICTURE_QUEUE_SIZE_DEFAULT; // option
     ffp->max_fps                        = 31; // option
 
-    ffp->videotoolbox                   = 0; // option
+    ffp->videotoolbox                   = 1; // option
     ffp->vtb_max_frame_width            = 0; // option
     ffp->vtb_async                      = 0; // option
     ffp->vtb_handle_resolution_change   = 0; // option
@@ -859,7 +866,9 @@ inline static void ffp_reset_internal(FFPlayer *ffp)
     ffp->pf_playback_rate               = 1.0f;
     ffp->pf_playback_rate_changed       = 0;
     ffp->pf_playback_volume             = 1.0f;
-    ffp->pf_playback_volume_changed     = 0;
+    ffp->pf_playback_volume_user_set    = 0;
+    ffp->pf_left_volume_q16             = 65536;
+    ffp->pf_right_volume_q16            = 65536;
 
     av_application_closep(&ffp->app_ctx);
     ijkio_manager_destroyp(&ffp->ijkio_manager_ctx);

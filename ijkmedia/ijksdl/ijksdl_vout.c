@@ -89,14 +89,10 @@ int SDL_VoutSetWindow(SDL_Vout *vout, void *window)
 
 int SDL_Vout_TakeSnapShot(SDL_Vout *vout, void *opaque, SDL_Vout_funcGetSnapShot get_snap_shot)
 {
-    if (!vout || !vout->get_renderer)
+    if (!vout || !vout->take_snapshot)
         return -1;
 
-    IJK_GLES2_Renderer *renderer = vout->get_renderer(vout);
-    if (!renderer)
-        return -1;
-
-    return IJK_GLES2_Renderer_takeSnapShot(renderer, opaque, get_snap_shot) ? 0 : -1;
+    return vout->take_snapshot(vout, opaque, get_snap_shot);
 }
 
 

@@ -1,255 +1,189 @@
 # ijkplayer
 
-Video player based on [ffplay](http://ffmpeg.org)
+FFmpeg 8 media kernels for the FlutterPlayer ecosystem.
 
-[![iOS Release](https://github.com/FlutterPlayer/ijkplayer/actions/workflows/ios_release.yml/badge.svg)](https://github.com/FlutterPlayer/ijkplayer/actions/workflows/ios_release.yml) [![Android Release](https://github.com/FlutterPlayer/ijkplayer/actions/workflows/android_release.yml/badge.svg)](https://github.com/FlutterPlayer/ijkplayer/actions/workflows/android_release.yml)
- 
-本项目是基于 https://github.com/befovy/ijkplayer 的衍生修改版本 在原来的基础上目前修改了 ios上仅支持arm64指令编译 最低系统版本仅支持 ios11 android的ndk版本升级到ndk21版本支持最低 platform api是16 使用本项目前请注意 如果需要了解项目的一些基本情况和文档 请参阅 https://fplayer.dev 网站。谢谢！
+This repository builds the native player used by
+[FlutterPlayer/fplayer](https://github.com/FlutterPlayer/fplayer). It contains
+the C engine, the SDL-name shim, Android JNI, Apple wrappers, OpenHarmony NAPI
+and the per-platform build facades.
 
-### Download
+- Android API 28+ (arm64-v8a; AAudio, OpenSL ES, Vulkan/MediaCodec)
+- iOS 13+ (device arm64; arm64 simulator; VideoToolbox/Metal)
+- macOS 10.15+ (arm64 CI build; universal builds are possible locally)
+- Windows x64 (MSVC static build)
+- OpenHarmony API 12+ (arm64-v8a; OHAudio/EGL/GLES)
 
-- Android:
- - Gradle
-```
-# required
-allprojects {
-    repositories {
-        jcenter()
-    }
-}
+## Published packages
 
-dependencies {
-    # required, enough for most devices.
-    compile 'tv.danmaku.ijk.media:ijkplayer-java:0.8.8'
-    compile 'tv.danmaku.ijk.media:ijkplayer-armv7a:0.8.8'
+Every tagged release publishes one version for all consumers:
 
-    # Other ABIs: optional
-    compile 'tv.danmaku.ijk.media:ijkplayer-armv5:0.8.8'
-    compile 'tv.danmaku.ijk.media:ijkplayer-arm64:0.8.8'
-    compile 'tv.danmaku.ijk.media:ijkplayer-x86:0.8.8'
-    compile 'tv.danmaku.ijk.media:ijkplayer-x86_64:0.8.8'
+| Platform | Release asset | Downstream use |
+| --- | --- | --- |
+| Android | `fplayercore-release.aar` | Gradle AAR; also published as `io.github.flutterplayer:fplayercore:<tag>` on Maven Central |
+| iOS | `fplayercore-ios.xcframework.zip` | Swift Package XCFramework |
+| iOS (CocoaPods) | `fplayercore-ios.tar.gz` | podspec vendors the xcframework |
+| macOS | `fplayercore-macos.xcframework.zip` | Swift Package XCFramework |
+| Windows | `fplayercore-windows.zip` | `fplayercore.lib`, `fplayercore.dll`, `fplayercore.h` |
+| OpenHarmony | `fplayercore-ohos.har` | `@fplayer/fplayercore` HAR |
+| All | `fplayercore-manifest.json` | version, commit and SHA-256 of every asset |
 
-    # ExoPlayer as IMediaPlayer: optional, experimental
-    compile 'tv.danmaku.ijk.media:ijkplayer-exo:0.8.8'
-}
-```
-- iOS
- - in coming...
+The release workflow is [.github/workflows/release.yml](.github/workflows/release.yml).
+A tag push builds Android, iOS, macOS and Windows, publishes the Android
+artifact to Maven Central when the Nexus secrets are configured, and attaches
+those assets to the GitHub Release. Run `workflow_dispatch` with `build_ohos`
+to build the OpenHarmony HAR on a self-hosted runner and attach it to the same
+tag.
 
-### Latest Changes
-- [CHANGELOG.md](CHANGELOG.md)
-
-### Features
-- Common
- - remove rarely used ffmpeg components to reduce binary size [config/module-lite.sh](config/module-lite.sh)
- - workaround for some buggy online video.
-- Android
- - platform: API 9~23
- - cpu: ARMv7a, ARM64v8a, x86 (ARMv5 is not tested on real devices)
- - api: [MediaPlayer-like](android/ijkplayer/ijkplayer-java/src/main/java/tv/danmaku/ijk/media/player/IMediaPlayer.java)
- - video-output: NativeWindow, OpenGL ES 2.0
- - audio-output: AudioTrack, OpenSL ES
- - hw-decoder: MediaCodec (API 16+, Android 4.1+)
- - alternative-backend: android.media.MediaPlayer, ExoPlayer
-- iOS
- - platform: iOS 7.0~10.2.x
- - cpu: armv7, arm64, i386, x86_64, (armv7s is obselete)
- - api: [MediaPlayer.framework-like](ios/IJKMediaPlayer/IJKMediaPlayer/IJKMediaPlayback.h)
- - video-output: OpenGL ES 2.0
- - audio-output: AudioQueue, AudioUnit
- - hw-decoder: VideoToolbox (iOS 8+)
- - alternative-backend: AVFoundation.Framework.AVPlayer, MediaPlayer.Framework.MPMoviePlayerControlelr (obselete since iOS 8)
-
-### NOT-ON-PLAN
-- obsolete platforms (Android: API-8 and below; iOS: pre-6.0)
-- obsolete cpu: ARMv5, ARMv6, MIPS (I don't even have these types of devices…)
-- native subtitle render
-- avfilter support
-
-### Before Build
-```
-# install homebrew, git, yasm
-ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-brew install git
-brew install yasm
-
-# add these lines to your ~/.bash_profile or ~/.profile
-# export ANDROID_SDK=<your sdk path>
-# export ANDROID_NDK=<your ndk path>
-
-# on Cygwin (unmaintained)
-# install git, make, yasm
+```bash
+git tag 1.2.0
+git push origin 1.2.0
 ```
 
-- If you prefer more codec/format
-```
-cd config
-rm module.sh
-ln -s module-default.sh module.sh
-cd android/contrib
-# cd ios
-sh compile-ffmpeg.sh clean
-```
+Before tagging, set `spec.version` in
+`platform/ios/CocoaPodsConfig/fplayercore.podspec` to the same version; the
+Gradle Android version is supplied by `-PVERSION_NAME=<tag>` in the workflow.
 
-- If you prefer less codec/format for smaller binary size (include hevc function)
-```
-cd config
-rm module.sh
-ln -s module-lite-hevc.sh module.sh
-cd android/contrib
-# cd ios
-sh compile-ffmpeg.sh clean
-```
+`workflow_dispatch` can rebuild a tag and opt into the OpenHarmony job. The OHOS
+job runs on a `[self-hosted, ohos]` runner with the OpenHarmony SDK, DevEco
+toolchain, `OHOS_BASE_SDK_HOME`, `DEVECO_SDK_HOME`, and `hvigorw`/`ohpm` on
+`PATH`; GitHub-hosted runners do not include them. A release without the OHOS
+job has no `fplayercore-ohos.har`; run the dispatch before fetching that tag in
+`fplayer`.
 
-- If you prefer less codec/format for smaller binary size (by default)
-```
-cd config
-rm module.sh
-ln -s module-lite.sh module.sh
-cd android/contrib
-# cd ios
-sh compile-ffmpeg.sh clean
+## Consumed by fplayer
+
+`fplayer` does not vendor these binaries. It resolves the latest release, or a
+pinned tag, and installs the matching asset for each platform:
+
+```bash
+./tool/fetch_ijkplayer_packages.sh
+./tool/fetch_ijkplayer_packages.sh 1.2.0
 ```
 
-- For Ubuntu/Debian users.
-```
-# choose [No] to use bash
-sudo dpkg-reconfigure dash
-```
+The fetch maps the assets to `android/local-repo` (mirrored as the Maven
+coordinate `io.github.flutterplayer:fplayercore:<tag>`),
+`ios/fplayer/Frameworks`, `macos/fplayer/Frameworks`, `ohos/har` and
+`windows/third_party/ijkplayer`.
+That keeps one `fplayer` version on one kernel version across Android, iOS,
+macOS, Windows and OpenHarmony.
 
-- If you'd like to share your config, pull request is welcome.
+## Build prerequisites
 
-### Build Android
-```
-git clone https://github.com/FlutterPlayer/ijkplayer.git ijkplayer-android
-cd ijkplayer-android
+| Platform | Dependencies |
+| --- | --- |
+| Android | JDK 17, NDK 25.2.9519653, CMake 3.22.1, Gradle wrapper |
+| iOS / macOS | Xcode command-line tools, `gas-preprocessor` (fetched by the init scripts), `cmake`, `yasm` |
+| Windows | Visual Studio 2022, vcpkg, CMake |
+| OpenHarmony | OpenHarmony SDK with the native toolchain; `OHOS_SDK` points at `native/` |
+| Common | `git`, `bash` |
 
-./init-android.sh
+All scripts locate the repository root themselves and write to `build/`.
 
-cd android/contrib
-./compile-ffmpeg.sh clean
-./compile-ffmpeg.sh all
+## Build Android
 
-Open Android peoject in android/ijkplayer using Android Studio
-run/debug ijkplayer-example in Android Studio
+```bash
+./scripts/init/init-android.sh
+./scripts/init/init-android-boringssl.sh
+./scripts/init/init-android-libsrt.sh
 
-To get a released aar
-run `./gradlew :fijkplayer-full:assembleRelease`
+./scripts/build/android/compile-boringssl.sh all
+./scripts/build/android/compile-ffmpeg.sh all
 
-```
+cd platform/android
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17
+./gradlew :library:assembleRelease
+./gradlew :app:assembleDebug
+cd ../..
 
-### Build iOS
-```
-git clone https://github.com/FlutterPlayer/ijkplayer.git ijkplayer-ios
-cd ijkplayer-ios
-git checkout -B latest 1.0.0
-
-./init-ios.sh
-
-cd ios
-./compile-ffmpeg.sh clean
-./compile-ffmpeg.sh all
-
-# Demo
-#     open ios/IJKMediaDemo/IJKMediaDemo.xcodeproj with Xcode
-# 
-# Import into Your own Application
-#     Select your project in Xcode.
-#     File -> Add Files to ... -> Select ios/IJKMediaPlayer/IJKMediaPlayer.xcodeproj
-#     Select your Application's target.
-#     Build Phases -> Target Dependencies -> Select IJKMediaFramework
-#     Build Phases -> Link Binary with Libraries -> Add:
-#         IJKMediaFramework.framework
-#
-#         AudioToolbox.framework
-#         AVFoundation.framework
-#         CoreGraphics.framework
-#         CoreMedia.framework
-#         CoreVideo.framework
-#         libbz2.tbd
-#         libz.tbd
-#         MediaPlayer.framework
-#         MobileCoreServices.framework
-#         OpenGLES.framework
-#         QuartzCore.framework
-#         UIKit.framework
-#         VideoToolbox.framework
-#
-#         ... (Maybe something else, if you get any link error)
-# 
+./scripts/collect.sh android
 ```
 
-### Build for Mac OS
+The AAR is `build/android/gradle/library/outputs/aar/fplayercore-release.aar`.
+The AAR contains the Java API and the single `libijkplayer.so` (arm64-v8a);
+FFmpeg is linked statically.
 
-Build ffmpeg for Max OS
-```
-./init-osx.sh
-cd osx && ./compile-ffmpeg.sh
-```
+## Build iOS
 
-Build ijkplayer for Max OS
+```bash
+./scripts/init/init-ios.sh
+./scripts/init/init-ios-openssl.sh
 
-```
-cd desktop
-mkdir cmake-build-debug && cd cmake-build-debug
-cmake .. -DCMAKE_BUILD_TYPE="Debug"
-make IjkPlayer
-make tuidemo
-```
+./scripts/build/ios/compile-openssl.sh all
+./scripts/build/ios/compile-ffmpeg.sh all
 
-**Or you can open ijkplayer as a CMakeLists.txt project using Clion.**
+xcodebuild -project platform/ios/IJKMediaPlayer/IJKMediaPlayer.xcodeproj \
+  -scheme fplayercore -configuration Release -sdk iphoneos -arch arm64 \
+  -derivedDataPath build/xcode-ios-iphoneos CODE_SIGNING_ALLOWED=NO build
 
-tuidemo is a terminal UI demo for ijkplayer in progress, it can't display video yet.
+xcodebuild -project platform/ios/IJKMediaPlayer/IJKMediaPlayer.xcodeproj \
+  -scheme fplayercore -configuration Release -sdk iphonesimulator -arch arm64 \
+  -derivedDataPath build/xcode-ios-simulator CODE_SIGNING_ALLOWED=NO build
 
-`libIjkPlayer.dylib` is the output dynamic library.
-
-### Support (支持) ###
-
-- Please do not send e-mail to me. Public technical discussion on github is preferred.
-- 请尽量在 github 上公开讨论[技术问题](https://github.com/FlutterPlayer/ijkplayer/issues)，不要以邮件方式私下询问，恕不一一回复。
-
-
-### License
-
-```
-Copyright (c) 2017 Bilibili
-Licensed under LGPLv2.1 or later
+xcodebuild -create-xcframework \
+  -framework build/xcode-ios-iphoneos/Build/Products/Release-iphoneos/fplayercore.framework \
+  -framework build/xcode-ios-simulator/Build/Products/Release-iphonesimulator/fplayercore.framework \
+  -output fplayercore.xcframework
+tar -czf fplayercore-ios.tar.gz fplayercore.xcframework
 ```
 
-ijkplayer required features are based on or derives from projects below:
-- LGPL
-  - [FFmpeg](http://git.videolan.org/?p=ffmpeg.git)
-  - [libVLC](http://git.videolan.org/?p=vlc.git)
-  - [kxmovie](https://github.com/kolyvan/kxmovie)
-  - [soundtouch](http://www.surina.net/soundtouch/sourcecode.html)
-- zlib license
-  - [SDL](http://www.libsdl.org)
-- BSD-style license
-  - [libyuv](https://code.google.com/p/libyuv/)
-- ISC license
-  - [libyuv/source/x86inc.asm](https://code.google.com/p/libyuv/source/browse/trunk/source/x86inc.asm)
+The iOS podspec in `platform/ios/CocoaPodsConfig` downloads
+`fplayercore-ios.tar.gz` and vendors the xcframework.
 
-android/ijkplayer-exo is based on or derives from projects below:
-- Apache License 2.0
-  - [ExoPlayer](https://github.com/google/ExoPlayer)
+## Build macOS
 
-android/example is based on or derives from projects below:
-- GPL
-  - [android-ndk-profiler](https://github.com/richq/android-ndk-profiler) (not included by default)
+```bash
+./scripts/init/init-osx.sh
+./scripts/build/macos/compile-ffmpeg.sh all
 
-ios/IJKMediaDemo is based on or derives from projects below:
-- Unknown license
-  - [iOS7-BarcodeScanner](https://github.com/jpwiddy/iOS7-BarcodeScanner)
+xcodebuild -project platform/macos/IJKMediaPlayer/IJKMediaPlayer.xcodeproj \
+  -scheme fplayercore -configuration Release -arch arm64 \
+  -derivedDataPath build/xcode-macos CODE_SIGNING_ALLOWED=NO build
 
-ijkplayer's build scripts are based on or derives from projects below:
-- [gas-preprocessor](http://git.libav.org/?p=gas-preprocessor.git)
-- [VideoLAN](http://git.videolan.org)
-- [yixia/FFmpeg-Android](https://github.com/yixia/FFmpeg-Android)
-- [kewlbear/FFmpeg-iOS-build-script](https://github.com/kewlbear/FFmpeg-iOS-build-script) 
+xcodebuild -create-xcframework \
+  -framework build/xcode-macos/Build/Products/Release/fplayercore.framework \
+  -output fplayercore.xcframework
+```
 
-### Commercial Use
-ijkplayer is licensed under LGPLv2.1 or later, so itself is free for commercial use under LGPLv2.1 or later
+The macOS target links OpenSSL statically per architecture. A universal
+`arm64 x86_64` build needs both Homebrew prefixes and can be produced locally.
 
-But ijkplayer is also based on other different projects under various licenses, which I have no idea whether they are compatible to each other or to your product.
+## Build Windows
 
-[IANAL](https://en.wikipedia.org/wiki/IANAL), you should always ask your lawyer for these stuffs before use it in your product.
+```powershell
+.\scripts\windows\prepare-deps.ps1 -VcpkgRoot $env:VCPKG_INSTALLATION_ROOT
+.\scripts\windows\build-windows.ps1 -VcpkgRoot $env:VCPKG_INSTALLATION_ROOT
+```
+
+Outputs are staged under `build/windows/{bin,lib,include}`. Package them as
+`fplayercore/` inside `fplayercore-windows.zip` for the release.
+
+## Build OpenHarmony
+
+```bash
+export OHOS_SDK=/path/to/openharmony/sdk/native
+export OHOS_BASE_SDK_HOME=/path/to/openharmony/sdk
+export DEVECO_SDK_HOME=/path/to/deveco/sdk
+./scripts/build/ohos/compile-ffmpeg.sh arm64
+./scripts/build/ohos/package-har.sh
+```
+
+The HAR is `@fplayer/fplayercore`; the native libraries are
+`libijkplayer.so`, `libijksdl.so`, `libijkplayer_napi.so` and the bundled
+`libc++_shared.so`. See [platform/ohos/README.md](platform/ohos/README.md).
+
+## Clean
+
+```bash
+./scripts/clean.sh
+./scripts/clean.sh android
+./scripts/clean.sh ios
+./scripts/clean.sh macos
+./scripts/clean.sh gradle
+```
+
+## Support and license
+
+Use GitHub issues for public technical discussion. The kernel is LGPLv2.1 or
+later; see [COPYING.LGPLv2.1](COPYING.LGPLv2.1) and
+[COPYING.LGPLv3](COPYING.LGPLv3). Third-party components are listed in
+[NOTICE](NOTICE).

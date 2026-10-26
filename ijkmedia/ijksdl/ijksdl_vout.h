@@ -25,7 +25,6 @@
 #ifndef IJKSDL__IJKSDL_VOUT_H
 #define IJKSDL__IJKSDL_VOUT_H
 
-#include "ijksdl_gles2.h"
 #include "ijksdl_stdinc.h"
 #include "ijksdl_class.h"
 #include "ijksdl_mutex.h"
@@ -78,7 +77,6 @@ struct SDL_Vout {
     int (*display_overlay)(SDL_Vout *vout, SDL_VoutOverlay *overlay);
 
     int (*set_window)(SDL_Vout *vout, void *window);
-    IJK_GLES2_Renderer * (*get_renderer)(SDL_Vout *vout);
     
     int (*take_snapshot)(SDL_Vout *vout, void *opaque, SDL_Vout_funcGetSnapShot callback);
     Uint32 overlay_format;

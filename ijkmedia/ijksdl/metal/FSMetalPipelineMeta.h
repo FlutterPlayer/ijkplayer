@@ -1,0 +1,32 @@
+//
+//  FSMetalPipelineMeta.h
+//  FSPlayer
+//
+//  Created by debugly on 2023/6/26.
+//
+
+#import <Foundation/Foundation.h>
+#import "FSMetalShaderTypes.h"
+#import <CoreVideo/CVPixelBuffer.h>
+
+NS_ASSUME_NONNULL_BEGIN
+
+@interface FSMetalPipelineMeta : NSObject
+
+@property (nonatomic) BOOL hdrContent;
+@property (nonatomic) BOOL fullRange;
+@property (nonatomic) NSString* fragmentName;
+@property (nonatomic) FSColorTransferFunc transferFunc;
+@property (nonatomic) FSYUV2RGBColorMatrixType convertMatrixType;
+
++ (FSMetalPipelineMeta *)createWithCVPixelbuffer:(CVPixelBufferRef)pixelBuffer;
+- (BOOL)metaMatchedCVPixelbuffer:(CVPixelBufferRef)pixelBuffer;
+
+/// Lightweight check: returns YES when the pixel buffer carries HDR content
+/// (BT.2020 color matrix). Does not allocate a full FSMetalPipelineMeta.
++ (BOOL)isHDRContentWithPixelBuffer:(CVPixelBufferRef)pixelBuffer;
+
+- (NSString *)description:(BOOL)displayHDR;
+@end
+
+NS_ASSUME_NONNULL_END

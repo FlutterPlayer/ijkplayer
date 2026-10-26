@@ -1,0 +1,6 @@
+{
+  global:
+    ijkmp_*;
+  local:
+    *;
+};

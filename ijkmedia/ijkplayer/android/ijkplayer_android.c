@@ -25,7 +25,6 @@
 
 #include <assert.h>
 #include "ijksdl/android/ijksdl_android.h"
-#include "ijkj4a/j4a/j4a_allclasses.h"
 #include "../ff_fferror.h"
 #include "../ff_ffplay.h"
 #include "../ijkplayer_internal.h"
@@ -38,7 +37,7 @@ IjkMediaPlayer *ijkmp_android_create(int(*msg_loop)(void*))
     if (!mp)
         goto fail;
 
-    mp->ffplayer->vout = SDL_VoutAndroid_CreateForAndroidSurface();
+    mp->ffplayer->vout = SDL_VoutAndroid_CreateForVulkan();
     if (!mp->ffplayer->vout)
         goto fail;
 
@@ -61,9 +60,6 @@ static void ijkmp_android_set_surface_l(JNIEnv *env, IjkMediaPlayer *mp, jobject
         return;
 
     SDL_VoutAndroid_SetAndroidSurface(env, mp->ffplayer->vout, android_surface);
-    FFPlayer *ffp = mp->ffplayer;
-    if (ffp->vout_type & SDL_VOUT_AMC_OES_EGL)
-        return;
     ffpipeline_set_surface(env, mp->ffplayer->pipeline, android_surface);
 }
 
@@ -79,45 +75,7 @@ void ijkmp_android_set_surface(JNIEnv *env, IjkMediaPlayer *mp, jobject android_
     MPTRACE("ijkmp_set_android_surface(surface=%p)=void", (void*)android_surface);
 }
 
-static void ijkmp_android_set_mediacodec_surface_and_texture_l(JNIEnv *env, IjkMediaPlayer *mp,
-        jobject amc_surface)
-{
-    if (!mp || !mp->ffplayer || !mp->ffplayer->vout)
-        return;
-    SDL_VoutAndroid_SetSurfaceTexture(mp->ffplayer->vout, env, amc_surface);
-
-    jobject surface = J4AC_MediaCodecSurface__getSurface(env, amc_surface);
-    ffpipeline_set_surface(env, mp->ffplayer->pipeline, surface);
-}
-
-void ijkmp_android_set_mediacodec_texture(JNIEnv *env, IjkMediaPlayer *mp, jobject amc_surface)
-{
-    if (!mp)
-        return;
-    MPTRACE("ijkmp_set_android_surface(amc_surface=%p)", (void*)amc_surface);
-    pthread_mutex_lock(&mp->mutex);
-    ijkmp_android_set_mediacodec_surface_and_texture_l(env, mp, amc_surface);
-    pthread_mutex_unlock(&mp->mutex);
-    MPTRACE("ijkmp_set_android_surface(amc_surface=%p)", (void*)amc_surface);
-}
-
-void ijkmp_android_set_volume(JNIEnv *env, IjkMediaPlayer *mp, float left, float right)
-{
-    if (!mp)
-        return;
-
-    MPTRACE("ijkmp_android_set_volume(%f, %f)", left, right);
-    pthread_mutex_lock(&mp->mutex);
-
-    if (mp->ffplayer && mp->ffplayer->pipeline) {
-        ffpipeline_set_volume(mp->ffplayer->pipeline, left, right);
-    }
-
-    pthread_mutex_unlock(&mp->mutex);
-    MPTRACE("ijkmp_android_set_volume(%f, %f)=void", left, right);
-}
-
-int ijkmp_android_get_audio_session_id(JNIEnv *env, IjkMediaPlayer *mp)
+int ijkmp_android_get_audio_session_id(IjkMediaPlayer *mp)
 {
     int audio_session_id = 0;
     if (!mp)

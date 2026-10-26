@@ -1,0 +1,5 @@
+# 由 scripts/init 拉取的第三方源码
+contrib/ffmpeg-*
+contrib/openssl-*
+contrib/libsrt-*
+Pods/

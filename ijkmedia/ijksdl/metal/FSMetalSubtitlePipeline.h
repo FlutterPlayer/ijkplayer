@@ -1,0 +1,40 @@
+//
+//  FSMetalSubtitlePipeline.h
+//  FSPlayer
+//
+//  Created by debugly on 2022/12/23.
+//
+
+@import MetalKit;
+
+NS_ASSUME_NONNULL_BEGIN
+
+typedef enum : NSUInteger {
+    FSMetalSubtitleOutFormatDIRECT,
+    FSMetalSubtitleOutFormatSWAP_RB
+} FSMetalSubtitleOutFormat;
+
+typedef enum : NSUInteger {
+    FSMetalSubtitleInFormatBRGA,
+    FSMetalSubtitleInFormatA8,
+} FSMetalSubtitleInFormat;
+
+@interface FSMetalSubtitlePipeline : NSObject
+
+- (instancetype)initWithDevice:(id<MTLDevice>)device
+                      inFormat:(FSMetalSubtitleInFormat)inFormat
+                     outFormat:(FSMetalSubtitleOutFormat)outFormat;
+
+- (instancetype)initWithDevice:(id<MTLDevice>)device
+                     inFormat:(FSMetalSubtitleInFormat)inFormat
+                     outFormat:(FSMetalSubtitleOutFormat)outFormat
+              colorPixelFormat:(MTLPixelFormat)colorPixelFormat;
+
+- (BOOL)createRenderPipelineIfNeed;
+- (void)updateSubtitleVertexIfNeed:(CGRect)rect;
+- (void)drawTexture:(id)subTexture encoder:(id<MTLRenderCommandEncoder>)encoder;
+- (void)drawTexture:(id)subTexture encoder:(id<MTLRenderCommandEncoder>)encoder colors:(void *)colors;
+
+@end
+
+NS_ASSUME_NONNULL_END

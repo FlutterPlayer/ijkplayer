@@ -29,15 +29,12 @@
 #include "j4a/class/java/util/ArrayList.h"
 #include "j4a/class/android/os/Bundle.h"
 #include "j4a/class/tv/danmaku/ijk/media/player/IjkMediaPlayer.h"
-#include "j4a/class/tv/danmaku/ijk/media/player/misc/IMediaDataSource.h"
-#include "j4a/class/tv/danmaku/ijk/media/player/misc/IAndroidIO.h"
 #include "ijksdl/ijksdl_log.h"
 #include "../ff_ffplay.h"
 #include "ffmpeg_api_jni.h"
 #include "ijkplayer_android_def.h"
 #include "ijkplayer_android.h"
 #include "ijksdl/android/ijksdl_android_jni.h"
-#include "ijksdl/android/ijksdl_codec_android_mediadef.h"
 #include "ijkavformat/ijkavformat.h"
 
 #define JNI_MODULE_PACKAGE      "tv/danmaku/ijk/media/player"
@@ -93,60 +90,6 @@ static IjkMediaPlayer *jni_set_media_player(JNIEnv* env, jobject thiz, IjkMediaP
     return old;
 }
 
-static int64_t jni_set_media_data_source(JNIEnv* env, jobject thiz, jobject media_data_source)
-{
-    int64_t nativeMediaDataSource = 0;
-
-    pthread_mutex_lock(&g_clazz.mutex);
-
-    jobject old = (jobject) (intptr_t) J4AC_IjkMediaPlayer__mNativeMediaDataSource__get__catchAll(env, thiz);
-    if (old) {
-        J4AC_IMediaDataSource__close__catchAll(env, old);
-        J4A_DeleteGlobalRef__p(env, &old);
-        J4AC_IjkMediaPlayer__mNativeMediaDataSource__set__catchAll(env, thiz, 0);
-    }
-
-    if (media_data_source) {
-        jobject global_media_data_source = (*env)->NewGlobalRef(env, media_data_source);
-        if (J4A_ExceptionCheck__catchAll(env) || !global_media_data_source)
-            goto fail;
-
-        nativeMediaDataSource = (int64_t) (intptr_t) global_media_data_source;
-        J4AC_IjkMediaPlayer__mNativeMediaDataSource__set__catchAll(env, thiz, (jlong) nativeMediaDataSource);
-    }
-
-fail:
-    pthread_mutex_unlock(&g_clazz.mutex);
-    return nativeMediaDataSource;
-}
-
-static int64_t jni_set_ijkio_androidio(JNIEnv* env, jobject thiz, jobject ijk_io)
-{
-    int64_t nativeAndroidIO = 0;
-
-    pthread_mutex_lock(&g_clazz.mutex);
-
-    jobject old = (jobject) (intptr_t) J4AC_IjkMediaPlayer__mNativeAndroidIO__get__catchAll(env, thiz);
-    if (old) {
-        J4AC_IAndroidIO__close__catchAll(env, old);
-        J4A_DeleteGlobalRef__p(env, &old);
-        J4AC_IjkMediaPlayer__mNativeAndroidIO__set__catchAll(env, thiz, 0);
-    }
-
-    if (ijk_io) {
-        jobject global_ijkio_androidio = (*env)->NewGlobalRef(env, ijk_io);
-        if (J4A_ExceptionCheck__catchAll(env) || !global_ijkio_androidio)
-            goto fail;
-
-        nativeAndroidIO = (int64_t) (intptr_t) global_ijkio_androidio;
-        J4AC_IjkMediaPlayer__mNativeAndroidIO__set__catchAll(env, thiz, (jlong) nativeAndroidIO);
-    }
-
-fail:
-    pthread_mutex_unlock(&g_clazz.mutex);
-    return nativeAndroidIO;
-}
-
 static int message_loop(void *arg);
 
 static void
@@ -198,49 +141,6 @@ LABEL_RETURN:
 }
 
 static void
-IjkMediaPlayer_setDataSourceCallback(JNIEnv *env, jobject thiz, jobject callback)
-{
-    MPTRACE("%s\n", __func__);
-    int retval = 0;
-    char uri[128];
-    int64_t nativeMediaDataSource = 0;
-    IjkMediaPlayer *mp = jni_get_media_player(env, thiz);
-    JNI_CHECK_GOTO(callback, env, "java/lang/IllegalArgumentException", "mpjni: setDataSourceCallback: null fd", LABEL_RETURN);
-    JNI_CHECK_GOTO(mp, env, "java/lang/IllegalStateException", "mpjni: setDataSourceCallback: null mp", LABEL_RETURN);
-
-    nativeMediaDataSource = jni_set_media_data_source(env, thiz, callback);
-    JNI_CHECK_GOTO(nativeMediaDataSource, env, "java/lang/IllegalStateException", "mpjni: jni_set_media_data_source: NewGlobalRef", LABEL_RETURN);
-
-    ALOGV("setDataSourceCallback: %"PRId64"\n", nativeMediaDataSource);
-    snprintf(uri, sizeof(uri), "ijkmediadatasource:%"PRId64, nativeMediaDataSource);
-
-    retval = ijkmp_set_data_source(mp, uri);
-
-    IJK_CHECK_MPRET_GOTO(retval, env, LABEL_RETURN);
-
-LABEL_RETURN:
-    ijkmp_dec_ref_p(&mp);
-}
-
-static void
-IjkMediaPlayer_setAndroidIOCallback(JNIEnv *env, jobject thiz, jobject callback) {
-    MPTRACE("%s\n", __func__);
-    int64_t nativeAndroidIO = 0;
-
-    IjkMediaPlayer *mp = jni_get_media_player(env, thiz);
-    JNI_CHECK_GOTO(callback, env, "java/lang/IllegalArgumentException", "mpjni: setAndroidIOCallback: null fd", LABEL_RETURN);
-    JNI_CHECK_GOTO(mp, env, "java/lang/IllegalStateException", "mpjni: setAndroidIOCallback: null mp", LABEL_RETURN);
-
-    nativeAndroidIO = jni_set_ijkio_androidio(env, thiz, callback);
-    JNI_CHECK_GOTO(nativeAndroidIO, env, "java/lang/IllegalStateException", "mpjni: jni_set_ijkio_androidio: NewGlobalRef", LABEL_RETURN);
-
-    ijkmp_set_option_int(mp, FFP_OPT_CATEGORY_FORMAT, "androidio-inject-callback", nativeAndroidIO);
-
-LABEL_RETURN:
-    ijkmp_dec_ref_p(&mp);
-}
-
-static void
 IjkMediaPlayer_setVideoSurface(JNIEnv *env, jobject thiz, jobject jsurface)
 {
     MPTRACE("%s\n", __func__);
@@ -249,18 +149,6 @@ IjkMediaPlayer_setVideoSurface(JNIEnv *env, jobject thiz, jobject jsurface)
 
     ijkmp_android_set_surface(env, mp, jsurface);
 
-LABEL_RETURN:
-    ijkmp_dec_ref_p(&mp);
-    return;
-}
-
-static void
-IjkMediaPlayer_setMediaCodecSurface(JNIEnv *env, jobject thiz,
-                                    jobject amc_surface) {
-    MPTRACE("%s\n", __func__);
-    IjkMediaPlayer *mp = jni_get_media_player(env, thiz);
-    JNI_CHECK_GOTO(mp, env, NULL, "mpjni: setMediaCodecSurface: null mp", LABEL_RETURN);
-    ijkmp_android_set_mediacodec_texture(env, mp, amc_surface);
 LABEL_RETURN:
     ijkmp_dec_ref_p(&mp);
     return;
@@ -400,7 +288,6 @@ IjkMediaPlayer_release(JNIEnv *env, jobject thiz)
     jobject weak_thiz = (jobject) ijkmp_set_weak_thiz(mp, NULL );
     (*env)->DeleteGlobalRef(env, weak_thiz);
     jni_set_media_player(env, thiz, NULL);
-    jni_set_media_data_source(env, thiz, NULL);
 
     ijkmp_dec_ref_p(&mp);
 }
@@ -561,7 +448,7 @@ IjkMediaPlayer_setVolume(JNIEnv *env, jobject thiz, jfloat leftVolume, jfloat ri
     IjkMediaPlayer *mp = jni_get_media_player(env, thiz);
     JNI_CHECK_GOTO(mp, env, NULL, "mpjni: setVolume: null mp", LABEL_RETURN);
 
-    ijkmp_android_set_volume(env, mp, leftVolume, rightVolume);
+    ijkmp_set_stereo_volume(mp, leftVolume, rightVolume);
 
 LABEL_RETURN:
     ijkmp_dec_ref_p(&mp);
@@ -575,7 +462,7 @@ IjkMediaPlayer_getAudioSessionId(JNIEnv *env, jobject thiz)
     IjkMediaPlayer *mp = jni_get_media_player(env, thiz);
     JNI_CHECK_GOTO(mp, env, NULL, "mpjni: getAudioSessionId: null mp", LABEL_RETURN);
 
-    audio_session_id = ijkmp_android_get_audio_session_id(env, mp);
+    audio_session_id = ijkmp_android_get_audio_session_id(mp);
 
 LABEL_RETURN:
     ijkmp_dec_ref_p(&mp);
@@ -636,11 +523,8 @@ LABEL_RETURN:
 static jstring
 IjkMediaPlayer_getColorFormatName(JNIEnv *env, jclass clazz, jint mediaCodecColorFormat)
 {
-    const char *codec_name = SDL_AMediaCodec_getColorFormatName(mediaCodecColorFormat);
-    if (!codec_name)
-        return NULL ;
-
-    return (*env)->NewStringUTF(env, codec_name);
+    (void)env; (void)clazz; (void)mediaCodecColorFormat;
+    return NULL;
 }
 
 static jstring
@@ -1138,52 +1022,6 @@ LABEL_RETURN:
 }
 
 // ----------------------------------------------------------------------------
-void monstartup(const char *libname);
-void moncleanup(void);
-
-static void
-IjkMediaPlayer_native_profileBegin(JNIEnv *env, jclass clazz, jstring libName)
-{
-    MPTRACE("%s\n", __func__);
-
-    const char *c_lib_name = NULL;
-    static int s_monstartup = 0;
-
-    if (!libName)
-        return;
-
-    if (s_monstartup) {
-        ALOGW("monstartup already called\b");
-        return;
-    }
-
-    c_lib_name = (*env)->GetStringUTFChars(env, libName, NULL );
-    JNI_CHECK_GOTO(c_lib_name, env, "java/lang/OutOfMemoryError", "mpjni: monstartup: libName.string oom", LABEL_RETURN);
-
-    s_monstartup = 1;
-    monstartup(c_lib_name);
-    ALOGD("monstartup: %s\n", c_lib_name);
-
-LABEL_RETURN:
-    if (c_lib_name)
-        (*env)->ReleaseStringUTFChars(env, libName, c_lib_name);
-}
-
-static void
-IjkMediaPlayer_native_profileEnd(JNIEnv *env, jclass clazz)
-{
-    MPTRACE("%s\n", __func__);
-    static int s_moncleanup = 0;
-
-    if (s_moncleanup) {
-        ALOGW("moncleanu already called\b");
-        return;
-    }
-
-    s_moncleanup = 1;
-    moncleanup();
-    ALOGD("moncleanup\n");
-}
 
 static void
 IjkMediaPlayer_native_setLogLevel(JNIEnv *env, jclass clazz, jint level)
@@ -1229,23 +1067,9 @@ static JNINativeMethod g_methods[] = {
         "(I)V",
         (void *) IjkMediaPlayer_setDataSourceFd },
     {
-        "_setDataSource",
-        "(Ltv/danmaku/ijk/media/player/misc/IMediaDataSource;)V",
-        (void *)IjkMediaPlayer_setDataSourceCallback },
-    {
-        "_setAndroidIOCallback",
-        "(Ltv/danmaku/ijk/media/player/misc/IAndroidIO;)V",
-        (void *)IjkMediaPlayer_setAndroidIOCallback
-    },
-    {
         "_setVideoSurface",
         "(Landroid/view/Surface;)V",
         (void *) IjkMediaPlayer_setVideoSurface
-    },
-    {
-        "_setMediaCodecSurface",
-        "(Ltv/danmaku/ijk/media/player/misc/MediaCodecSurface;)V",
-        (void *) IjkMediaPlayer_setMediaCodecSurface
     },
     { "_snapShot",              "()V",      (void *) IjkMediaPlayer_snapShot },
     { "_prepareAsync",          "()V",      (void *) IjkMediaPlayer_prepareAsync },
@@ -1279,8 +1103,6 @@ static JNINativeMethod g_methods[] = {
     { "_setPropertyLong",       "(IJ)V",                    (void *) ijkMediaPlayer_setPropertyLong },
     { "_setStreamSelected",     "(IZ)V",                    (void *) ijkMediaPlayer_setStreamSelected },
 
-    { "native_profileBegin",    "(Ljava/lang/String;)V",    (void *) IjkMediaPlayer_native_profileBegin },
-    { "native_profileEnd",      "()V",                      (void *) IjkMediaPlayer_native_profileEnd },
 
     { "native_setLogLevel",     "(I)V",                     (void *) IjkMediaPlayer_native_setLogLevel },
     { "_setFrameAtTime",        "(Ljava/lang/String;JJII)V", (void *) IjkMediaPlayer_setFrameAtTime },
@@ -1297,6 +1119,12 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved)
         return -1;
     }
     assert(env != NULL);
+
+    // ijksdl is linked into this same library; run its J4A initialization here
+    // because it no longer has its own JNI_OnLoad.
+    if (ijksdl_JNI_OnLoad(vm, reserved) < 0) {
+        return -1;
+    }
 
     pthread_mutex_init(&g_clazz.mutex, NULL );
 
@@ -1317,4 +1145,6 @@ JNIEXPORT void JNI_OnUnload(JavaVM *jvm, void *reserved)
     ijkmp_global_uninit();
 
     pthread_mutex_destroy(&g_clazz.mutex);
+
+    ijksdl_JNI_OnUnload(jvm, reserved);
 }

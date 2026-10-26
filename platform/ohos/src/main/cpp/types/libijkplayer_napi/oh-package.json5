@@ -1,0 +1,6 @@
+{
+  "name": "libijkplayer_napi.so",
+  "types": "./index.d.ts",
+  "version": "1.0.0",
+  "description": "OpenHarmony NAPI bridge for ijkplayer"
+}

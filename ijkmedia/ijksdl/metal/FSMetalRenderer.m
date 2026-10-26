@@ -1,0 +1,344 @@
+//
+//  FSMetalRenderer.m
+//  FFmpegTutorial-macOS
+//
+//  Created by debugly on 2022/11/23.
+//  Copyright © 2022 debugly's Awesome FFmpeg Tutorial. All rights reserved.
+//
+
+#import "FSMetalRenderer.h"
+#import "FSMathUtilities.h"
+#import "FSMetalPipelineMeta.h"
+#include "../ijksdl_log.h"
+
+@interface FSMetalRenderer()
+{
+    vector_float4 _colorAdjustment;
+    id<MTLDevice> _device;
+    MTLPixelFormat _colorPixelFormat;
+}
+
+// The render pipeline generated from the vertex and fragment shaders in the .metal shader file.
+@property (nonatomic, strong) id<MTLRenderPipelineState> renderPipeline;
+@property (nonatomic, strong) id<MTLBuffer> vertexBuffer;
+#if USE_ARGUMENT_BUFFERS
+@property (nonatomic, strong) id<MTLArgumentEncoder> argumentEncoder;
+#endif
+@property (nonatomic, strong) id<MTLBuffer> convertMatrixBuff;
+@property (nonatomic, assign) BOOL convertMatrixChanged;
+
+@property (nonatomic, strong) FSMetalPipelineMeta *pipelineMeta;
+@property (nonatomic, assign) BOOL vertexChanged;
+
+@end
+
+@implementation FSMetalRenderer
+
+- (instancetype)initWithDevice:(id<MTLDevice>)device
+              colorPixelFormat:(MTLPixelFormat)colorPixelFormat
+{
+    self = [super init];
+    if (self) {
+        NSAssert(device, @"device can't be nil!");
+        _device = device;
+        _colorPixelFormat = colorPixelFormat;
+        _colorAdjustment = (vector_float4){0.0};
+    }
+    return self;
+}
+
+- (BOOL)isHDRContent
+{
+    return self.pipelineMeta.hdrContent;
+}
+
+- (BOOL)matchPixelBuffer:(CVPixelBufferRef)pixelBuffer
+{
+    return [self.pipelineMeta metaMatchedCVPixelbuffer:pixelBuffer];
+}
+
+- (BOOL)createRenderPipelineIfNeed:(CVPixelBufferRef)pixelBuffer blend:(BOOL)blend
+{
+    if (self.renderPipeline) {
+        return YES;
+    }
+    
+    if (!self.pipelineMeta) {
+        self.pipelineMeta = [FSMetalPipelineMeta createWithCVPixelbuffer:pixelBuffer];
+    }
+    
+    if (!self.pipelineMeta) {
+        return NO;
+    }
+    
+    self.convertMatrixChanged = YES;
+    
+    ALOGI("render pipeline:%s\n",[[self.pipelineMeta description:self.hdrDisplay]UTF8String]);
+    
+    NSBundle* bundle = [NSBundle bundleForClass:[self class]];
+    NSURL * libURL = [bundle URLForResource:@"default" withExtension:@"metallib"];
+    
+    NSError *error;
+    
+    id<MTLLibrary> defaultLibrary = [_device newLibraryWithFile:libURL.path error:&error];
+    
+    NSParameterAssert(defaultLibrary);
+    // Load all the shader files with a .metal file extension in the project.
+    //id<MTLLibrary> defaultLibrary = [device newDefaultLibrary];
+    id<MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"mvpShader"];
+    NSAssert(vertexFunction, @"can't find Vertex Function:vertexShader");
+    NSString *fragmentName = self.pipelineMeta.fragmentName;
+#if USE_ARGUMENT_BUFFERS
+    if (![fragmentName hasSuffix:@"_argbuf"] && ![fragmentName hasPrefix:@"subtile"]) {
+        fragmentName = [fragmentName stringByAppendingString:@"_argbuf"];
+    }
+#endif
+    id<MTLFunction> fragmentFunction = [defaultLibrary newFunctionWithName:fragmentName];
+    NSAssert(fragmentFunction, @"can't find Fragment Function:%@", fragmentName);
+    // Configure a pipeline descriptor that is used to create a pipeline state.
+    MTLRenderPipelineDescriptor *pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
+    pipelineStateDescriptor.vertexFunction = vertexFunction;
+    pipelineStateDescriptor.fragmentFunction = fragmentFunction;
+    pipelineStateDescriptor.colorAttachments[0].pixelFormat = _colorPixelFormat; // 设置颜色格式
+    pipelineStateDescriptor.sampleCount = 1;
+    // 启用混合
+    if (blend) {
+        pipelineStateDescriptor.colorAttachments[0].blendingEnabled = YES;
+        // 设置混合因子（经典Alpha混合公式）
+        pipelineStateDescriptor.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorSourceAlpha;
+        pipelineStateDescriptor.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
+        pipelineStateDescriptor.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorOne;
+        pipelineStateDescriptor.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
+    }
+
+    id<MTLRenderPipelineState> pipelineState = [_device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
+                                                                                         error:&error]; // 创建图形渲染管道，耗性能操作不宜频繁调用
+    NSAssert(pipelineState, @"Failed to create pipeline state: %@", error);
+
+#if USE_ARGUMENT_BUFFERS
+    self.argumentEncoder = [fragmentFunction newArgumentEncoderWithBufferIndex:FSFragmentBufferLocation0];
+#endif
+    self.renderPipeline = pipelineState;
+    return YES;
+}
+
+- (void)setVertexRatio:(CGSize)vertexRatio
+{
+    if (!CGSizeEqualToSize(self.vertexRatio, vertexRatio)) {
+        _vertexRatio = vertexRatio;
+        self.vertexChanged = YES;
+    }
+}
+
+- (void)setTextureCrop:(CGSize)textureCrop
+{
+    if (!CGSizeEqualToSize(self.textureCrop, textureCrop)) {
+        _textureCrop = textureCrop;
+        self.vertexChanged = YES;
+    }
+}
+
+- (void)setXRotateDegrees:(float)xRotateDegrees
+{
+    if (_xRotateDegrees != xRotateDegrees) {
+        _xRotateDegrees = xRotateDegrees;
+        self.vertexChanged = YES;
+    }
+}
+
+- (void)setYRotateDegrees:(float)yRotateDegrees
+{
+    if (_yRotateDegrees != yRotateDegrees) {
+        _yRotateDegrees = yRotateDegrees;
+        self.vertexChanged = YES;
+    }
+}
+
+- (void)setZRotateDegrees:(float)zRotateDegrees
+{
+    if (_zRotateDegrees != zRotateDegrees) {
+        _zRotateDegrees = zRotateDegrees;
+        self.vertexChanged = YES;
+    }
+}
+
+- (void)setAutoZRotateDegrees:(float)autoZRotateDegrees
+{
+    if (_autoZRotateDegrees != autoZRotateDegrees) {
+        _autoZRotateDegrees = autoZRotateDegrees;
+        self.vertexChanged = YES;
+    }
+}
+
+- (void)updateColorAdjustment:(vector_float4)s
+{
+    float s0 = s[0];
+    float s1 = s[1];
+    float s2 = s[2];
+    float s3 = s[3];
+    
+    vector_float4 d = _colorAdjustment;
+    float d0 = d[0];
+    float d1 = d[1];
+    float d2 = d[2];
+    float d3 = d[3];
+    
+    if (s0 != d0 || s1 != d1 || s2 != d2 || s3 != d3) {
+        _colorAdjustment = s;
+        self.convertMatrixChanged = YES;
+    }
+}
+
+- (void)updateVertexIfNeed
+{
+    if (!self.vertexChanged) {
+        return;
+    }
+    
+    self.vertexChanged = NO;
+    
+    float x = self.vertexRatio.width;
+    float y = self.vertexRatio.height;
+    /*
+     //https://stackoverflow.com/questions/58702023/what-is-the-coordinate-system-used-in-metal
+     
+     triangle strip
+       ↑y
+     V3|V4
+     --|--→x
+     V1|V2
+     📐-->V1V2V3
+     📐-->V2V3V4
+     
+     texture
+     |---->x
+     |V3 V4
+     |V1 V2
+     ↓y
+     */
+    float max_t_y = 1.0 * (1 - self.textureCrop.height);
+    float max_t_x = 1.0 * (1 - self.textureCrop.width);
+    FSVertex quadVertices[4] =
+    {   //顶点坐标；                纹理坐标；
+        { { -1.0 * x, -1.0 * y }, { 0.f, max_t_y } },
+        { {  1.0 * x, -1.0 * y }, { max_t_x, max_t_y } },
+        { { -1.0 * x,  1.0 * y }, { 0.f, 0.f } },
+        { {  1.0 * x,  1.0 * y }, { max_t_x, 0.f } },
+    };
+    
+    float rx = radians_from_degrees(self.xRotateDegrees);
+    float ry = radians_from_degrees(self.yRotateDegrees);
+    float rz = radians_from_degrees(self.zRotateDegrees);
+    
+    quaternion_float q = quaternion_from_euler((vector_float3){rx, ry, rz});
+    matrix_float4x4 viewMatrix = matrix4x4_from_quaternion(q);
+    
+    if (self.xRotateDegrees != 0 || self.yRotateDegrees != 0) {
+        viewMatrix = matrix_multiply(matrix4x4_translation(0.0, 0.0, 0.5), viewMatrix);
+    }
+    
+    if (self.autoZRotateDegrees != 0) {
+        float zRadin = radians_from_degrees(self.autoZRotateDegrees);
+        viewMatrix = matrix_multiply(matrix4x4_rotation(zRadin, 0.0, 0.0, 1.0),viewMatrix);
+    }
+    
+    FSVertexData data = {quadVertices[0],quadVertices[1],quadVertices[2],quadVertices[3],viewMatrix};
+    self.vertexBuffer = [_device newBufferWithBytes:&data
+                                             length:sizeof(data)
+                                            options:MTLResourceStorageModeShared]; // 创建顶点缓存
+}
+
+- (void)updateConvertMatrixBufferIfNeed
+{
+    if (self.convertMatrixChanged || !self.convertMatrixBuff) {
+        self.convertMatrixChanged = NO;
+        
+        FSConvertMatrix convertMatrix = ijk_metal_create_color_matrix(self.pipelineMeta.convertMatrixType, self.pipelineMeta.fullRange);
+        convertMatrix.adjustment = _colorAdjustment;
+        convertMatrix.transferFun = self.pipelineMeta.transferFunc;
+        convertMatrix.hdrContent = self.pipelineMeta.hdrContent;
+        convertMatrix.hdrDisplay = self.hdrDisplay ? 1 : 0;
+        self.convertMatrixBuff = [_device newBufferWithBytes:&convertMatrix
+                                                      length:sizeof(FSConvertMatrix)
+                                                     options:MTLResourceStorageModeShared];
+    }
+}
+
+- (void)setHdrDisplay:(BOOL)hdrDisplay
+{
+    if (_hdrDisplay != hdrDisplay) {
+        _hdrDisplay = hdrDisplay;
+        self.convertMatrixChanged = YES;
+    }
+}
+
+- (void)uploadTextureWithEncoder:(id<MTLRenderCommandEncoder>)encoder
+                        textures:(NSArray*)textures
+{
+    if ([textures count] == 0) {
+        ALOGE("skip draw: no texture\n");
+        return;
+    }
+
+    [self updateVertexIfNeed];
+    // Pass in the parameter data.
+    [encoder setVertexBuffer:self.vertexBuffer
+                      offset:0
+                     atIndex:FSVertexInputIndexVertices]; // 设置顶点缓存
+ 
+    [self updateConvertMatrixBufferIfNeed];
+    
+#if USE_ARGUMENT_BUFFERS
+    // Each draw needs its own argument buffer snapshot. Reusing one mutable buffer for
+    // multiple draw calls in the same command encoder can make earlier draws observe
+    // later texture bindings when the GPU executes asynchronously.
+    id<MTLBuffer> drawArgumentBuffer = [_device newBufferWithLength:self.argumentEncoder.encodedLength options:0];
+    [self.argumentEncoder setArgumentBuffer:drawArgumentBuffer offset:0];
+    
+    for (int i = 0; i < [textures count]; i++) {
+        id<MTLTexture>t = textures[i];
+        [self.argumentEncoder setTexture:t
+                                 atIndex:FSFragmentTextureIndexTextureY + i]; // 设置纹理
+        
+        // Indicate to Metal that the GPU accesses these resources, so they need
+        // to map to the GPU's address space.
+        if (@available(macOS 10.15, ios 13.0, tvOS 13.0, *)) {
+            [encoder useResource:t usage:MTLResourceUsageRead stages:MTLRenderStageFragment];
+        } else {
+            // Fallback on earlier versions
+            [encoder useResource:t usage:MTLResourceUsageRead];
+        }
+    }
+    
+    if (self.convertMatrixBuff) {
+        [self.argumentEncoder setBuffer:self.convertMatrixBuff
+                                 offset:0
+                                atIndex:FSFragmentMatrixIndexConvert];
+        if (@available(macOS 10.15, ios 13.0, tvOS 13.0, *)) {
+            [encoder useResource:self.convertMatrixBuff usage:MTLResourceUsageRead stages:MTLRenderStageFragment];
+        } else {
+            [encoder useResource:self.convertMatrixBuff usage:MTLResourceUsageRead];
+        }
+    }
+    
+    [encoder setFragmentBuffer:drawArgumentBuffer
+                        offset:0
+                       atIndex:FSFragmentBufferLocation0];
+#else
+    // Direct parameter binding path (without Argument Buffer)
+    for (NSUInteger i = 0; i < [textures count]; i++) {
+        [encoder setFragmentTexture:textures[i] atIndex:FSFragmentTextureIndexTextureY + i];
+    }
+    [encoder setFragmentBuffer:self.convertMatrixBuff offset:0 atIndex:FSFragmentMatrixIndexConvert];
+#endif
+    
+    // 设置渲染管道，以保证顶点和片元两个shader会被调用
+    [encoder setRenderPipelineState:self.renderPipeline];
+    
+    // Draw the triangle.
+    [encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip
+                vertexStart:0
+                vertexCount:4]; // 绘制
+}
+
+@end

@@ -49,7 +49,7 @@
 
 typedef struct RingBuffer
 {
-    AVFifoBuffer *fifo;
+    AVFifo       *fifo;
     int           read_back_capacity;
 
     int           read_pos;
@@ -91,7 +91,7 @@ typedef struct Context {
 static int ring_init(RingBuffer *ring, int64_t capacity, int64_t read_back_capacity)
 {
     memset(ring, 0, sizeof(RingBuffer));
-    ring->fifo = av_fifo_alloc((unsigned int)(capacity + read_back_capacity));
+    ring->fifo = av_fifo_alloc2((size_t)(capacity + read_back_capacity), 1, 0);
     if (!ring->fifo)
         return AVERROR(ENOMEM);
 
@@ -101,23 +101,53 @@ static int ring_init(RingBuffer *ring, int64_t capacity, int64_t read_back_capac
 
 static void ring_destroy(RingBuffer *ring)
 {
-    av_fifo_freep(&ring->fifo);
+    av_fifo_freep2(&ring->fifo);
 }
 
 static void ring_reset(RingBuffer *ring)
 {
-    av_fifo_reset(ring->fifo);
+    av_fifo_reset2(ring->fifo);
     ring->read_pos = 0;
 }
 
 static int ring_size(RingBuffer *ring)
 {
-    return av_fifo_size(ring->fifo) - ring->read_pos;
+    return (int)av_fifo_can_read(ring->fifo) - ring->read_pos;
 }
 
 static int ring_space(RingBuffer *ring)
 {
-    return av_fifo_space(ring->fifo);
+    return (int)av_fifo_can_write(ring->fifo);
+}
+
+typedef struct FifoPeekCtx {
+    void *dest;
+    void (*func)(void*, void*, int);
+} FifoPeekCtx;
+
+static int fifo_peek_to_cb(void *opaque, void *buf, size_t *nb_elems)
+{
+    FifoPeekCtx *ctx = opaque;
+    if (ctx->func)
+        ctx->func(ctx->dest, buf, (int)*nb_elems);
+    return 0;
+}
+
+typedef struct FifoWriteCtx {
+    void *src;
+    int (*func)(void*, void*, int);
+} FifoWriteCtx;
+
+static int fifo_write_from_cb(void *opaque, void *buf, size_t *nb_elems)
+{
+    FifoWriteCtx *ctx = opaque;
+    int ret = ctx->func(ctx->src, buf, (int)*nb_elems);
+    if (ret < 0) {
+        *nb_elems = 0;
+        return ret;
+    }
+    *nb_elems = ret;
+    return 0;
 }
 
 static int ring_generic_read(RingBuffer *ring, void *dest, int buf_size, void (*func)(void*, void*, int))
@@ -125,11 +155,19 @@ static int ring_generic_read(RingBuffer *ring, void *dest, int buf_size, void (*
     int ret;
 
     av_assert2(buf_size <= ring_size(ring));
-    ret = av_fifo_generic_peek_at(ring->fifo, dest, ring->read_pos, buf_size, func);
+    if (func) {
+        FifoPeekCtx ctx = { dest, func };
+        size_t nb_elems = buf_size;
+        ret = av_fifo_peek_to_cb(ring->fifo, fifo_peek_to_cb, &ctx, &nb_elems, ring->read_pos);
+        if (ret >= 0)
+            ret = (int)nb_elems;
+    } else {
+        ret = av_fifo_peek(ring->fifo, dest, buf_size, ring->read_pos);
+    }
     ring->read_pos += buf_size;
 
     if (ring->read_pos > ring->read_back_capacity) {
-        av_fifo_drain(ring->fifo, ring->read_pos - ring->read_back_capacity);
+        av_fifo_drain2(ring->fifo, ring->read_pos - ring->read_back_capacity);
         ring->read_pos = ring->read_back_capacity;
     }
 
@@ -139,7 +177,16 @@ static int ring_generic_read(RingBuffer *ring, void *dest, int buf_size, void (*
 static int ring_generic_write(RingBuffer *ring, void *src, int size, int (*func)(void*, void*, int))
 {
     av_assert2(size <= ring_space(ring));
-    return av_fifo_generic_write(ring->fifo, src, size, func);
+    if (func) {
+        FifoWriteCtx ctx = { src, func };
+        size_t nb_elems = size;
+        int ret = av_fifo_write_from_cb(ring->fifo, fifo_write_from_cb, &ctx, &nb_elems);
+        if (ret < 0)
+            return ret;
+        return (int)nb_elems;
+    } else {
+        return av_fifo_write(ring->fifo, src, size);
+    }
 }
 
 static int ring_size_of_read_back(RingBuffer *ring)

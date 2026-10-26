@@ -30,7 +30,6 @@
 #include "libavutil/avstring.h"
 #include "libavutil/time.h"
 #include "libavformat/avformat.h"
-#include "libavcodec/avfft.h"
 #include "libswscale/swscale.h"
 #include "libavutil/application.h"
 #include "libavutil/base64.h"

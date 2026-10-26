@@ -1,0 +1,11 @@
+xcuserdata
+# xcshareddata
+*.xccheckout
+CocoaPodsConfig/fplayercore.framework
+CocoaPodsConfig/fplayercore-ios.tar.gz
+CocoaPodsConfig/fplayercore.xcframework
+CocoaPodsConfig/LICENSE
+
+# 由 scripts/init 拉取的第三方源码
+ffmpeg-*/
+openssl-*/

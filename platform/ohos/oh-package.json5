@@ -1,0 +1,11 @@
+{
+  "name": "@fplayer/fplayercore",
+  "version": "1.0.0",
+  "description": "OpenHarmony build of ijkplayer",
+  "main": "index.ets",
+  "author": "FlutterPlayer",
+  "license": "LGPL-2.1-or-later",
+  "dependencies": {
+    "libijkplayer_napi.so": "file:./src/main/cpp/types/libijkplayer_napi"
+  }
+}

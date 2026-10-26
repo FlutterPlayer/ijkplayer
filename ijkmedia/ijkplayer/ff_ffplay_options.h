@@ -106,7 +106,7 @@ static const AVOption ffp_context_options[] = {
         OPTION_OFFSET(max_fps),         OPTION_INT(31, -1, 121) },
 
     { "overlay-format",                 "fourcc of overlay format",
-        OPTION_OFFSET(overlay_format),  OPTION_INT(SDL_FCC_RV32, INT_MIN, INT_MAX),
+        OPTION_OFFSET(overlay_format),  OPTION_INT(SDL_FCC_I420, INT_MIN, INT_MAX),
         .unit = "overlay-format" },
     { "fcc-_es2",                       "", 0, OPTION_CONST(SDL_FCC__GLES2), .unit = "overlay-format" },
     { "fcc-i420",                       "", 0, OPTION_CONST(SDL_FCC_I420), .unit = "overlay-format" },
@@ -174,8 +174,8 @@ static const AVOption ffp_context_options[] = {
         OPTION_OFFSET(pos_update_interval), OPTION_INT(NOTIFY_KEY_MSG_PER_MILLISECONDS, 10, 1000) },
 
         // iOS only options
-    { "videotoolbox",                       "VideoToolbox: enable",
-        OPTION_OFFSET(videotoolbox),        OPTION_INT(0, 0, 1) },
+    { "videotoolbox",                       "VideoToolbox: enable (auto-detect by default)",
+        OPTION_OFFSET(videotoolbox),        OPTION_INT(1, 0, 1) },
     { "videotoolbox-max-frame-width",       "VideoToolbox: max width of output frame",
         OPTION_OFFSET(vtb_max_frame_width), OPTION_INT(0, 0, INT_MAX) },
     { "videotoolbox-async",                 "VideoToolbox: use kVTDecodeFrame_EnableAsynchronousDecompression()",
@@ -202,9 +202,11 @@ static const AVOption ffp_context_options[] = {
         OPTION_OFFSET(mediacodec_mpeg4),        OPTION_INT(0, 0, 1) },
     { "mediacodec-handle-resolution-change",                    "MediaCodec: handle resolution change automatically",
         OPTION_OFFSET(mediacodec_handle_resolution_change),     OPTION_INT(0, 0, 1) },
-    { "opensles",                           "OpenSL ES: enable",
+    { "aaudio",                            "AAudio: enable (falls back to OpenSL ES)",
+        OPTION_OFFSET(aaudio),              OPTION_INT(1, 0, 1) },
+    { "opensles",                           "OpenSL ES: force OpenSL ES instead of AAudio",
         OPTION_OFFSET(opensles),            OPTION_INT(0, 0, 1) },
-    { "soundtouch",                           "SoundTouch: enable",
+    { "soundtouch",                           "SoundTouch: enable (forced when the audio backend cannot change rate)",
         OPTION_OFFSET(soundtouch_enable),            OPTION_INT(0, 0, 1) },
     { "mediacodec-sync",                 "mediacodec: use msg_queue for synchronise",
         OPTION_OFFSET(mediacodec_sync),           OPTION_INT(0, 0, 1) },
@@ -216,10 +218,10 @@ static const AVOption ffp_context_options[] = {
         OPTION_OFFSET(render_wait_start),      OPTION_INT(0, 0, 1) },
     { "cover-after-prepared",          "display the first video frame as cover, then toggle pause",
       OPTION_OFFSET(cover_after_prepared),      OPTION_INT(0, 0, 1) },
-    { "vout-type",                  "video out type, SDL2(0) and glfw(1), amc(gles)",
+    { "vout-type",                  "video out type, SDL2(0), callback(2), dummy(3)",
       OPTION_OFFSET(vout_type),                 OPTION_INT(0, 0, 2)},
-    { "aout-type",                  "audio out type, SDL2(0) and port audio(1)",
-      OPTION_OFFSET(aout_type),                 OPTION_INT(0, 0, 1)} ,
+    { "aout-type",                  "audio out type, SDL2(0) only",
+      OPTION_OFFSET(aout_type),                 OPTION_INT(0, 0, 0)} ,
     { NULL }
 };
 

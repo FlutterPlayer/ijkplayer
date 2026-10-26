@@ -242,6 +242,17 @@ void ijkmp_set_playback_volume(IjkMediaPlayer *mp, float volume)
     MPTRACE("%s()=void\n", __func__);
 }
 
+void ijkmp_set_stereo_volume(IjkMediaPlayer *mp, float left, float right)
+{
+    assert(mp);
+
+    MPTRACE("%s(%f, %f)\n", __func__, left, right);
+    pthread_mutex_lock(&mp->mutex);
+    ffp_set_playback_stereo_volume(mp->ffplayer, left, right);
+    pthread_mutex_unlock(&mp->mutex);
+    MPTRACE("%s()=void\n", __func__);
+}
+
 int ijkmp_set_stream_selected(IjkMediaPlayer *mp, int stream, int selected)
 {
     assert(mp);

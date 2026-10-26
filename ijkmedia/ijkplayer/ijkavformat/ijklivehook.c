@@ -21,6 +21,7 @@
 
 #include "libavformat/avformat.h"
 #include "libavformat/url.h"
+#include "libavformat/demux.h"
 #include "libavutil/avstring.h"
 #include "libavutil/opt.h"
 
@@ -72,7 +73,7 @@ fail:
     return ret;
 }
 
-static int ijklivehook_probe(AVProbeData *probe)
+static int ijklivehook_probe(const AVProbeData *probe)
 {
     if (av_strstart(probe->filename, "ijklivehook:", NULL))
         return AVPROBE_SCORE_MAX;
@@ -185,27 +186,17 @@ fail:
     return ret;
 }
 
-static int ijklivehook_read_header(AVFormatContext *avf, AVDictionary **options)
+static int ijklivehook_read_header(AVFormatContext *avf)
 {
     Context    *c           = avf->priv_data;
     const char *inner_url   = NULL;
     int         ret         = -1;
 
     c->app_ctx = (AVApplicationContext *)(intptr_t)c->app_ctx_intptr;
-    av_strstart(avf->filename, "ijklivehook:", &inner_url);
+    av_strstart(avf->url, "ijklivehook:", &inner_url);
 
     c->io_control.size = sizeof(c->io_control);
     av_strlcpy(c->io_control.url, inner_url, sizeof(c->io_control.url));
-
-    if (av_stristart(c->io_control.url, "rtmp", NULL) ||
-        av_stristart(c->io_control.url, "rtsp", NULL)) {
-        // There is total different meaning for 'timeout' option in rtmp
-        av_log(avf, AV_LOG_WARNING, "remove 'timeout' option for rtmp.\n");
-        av_dict_set(options, "timeout", NULL, 0);
-    }
-
-    if (options)
-        av_dict_copy(&c->open_opts, *options, 0);
 
     c->io_control.retry_counter = 0;
     ret = ijkurlhook_call_inject(avf);
@@ -306,14 +297,14 @@ static const AVClass ijklivehook_class = {
     .version    = LIBAVUTIL_VERSION_INT,
 };
 
-AVInputFormat ijkff_ijklivehook_demuxer = {
-    .name           = "ijklivehook",
-    .long_name      = "Live Hook Controller",
-    .flags          = AVFMT_NOFILE | AVFMT_TS_DISCONT,
+const FFInputFormat ijkff_ijklivehook_demuxer = {
+    .p.name         = "ijklivehook",
+    .p.long_name    = "Live Hook Controller",
+    .p.flags        = AVFMT_NOFILE | AVFMT_TS_DISCONT,
+    .p.priv_class   = &ijklivehook_class,
     .priv_data_size = sizeof(Context),
     .read_probe     = ijklivehook_probe,
-    .read_header2   = ijklivehook_read_header,
+    .read_header    = ijklivehook_read_header,
     .read_packet    = ijklivehook_read_packet,
     .read_close     = ijklivehook_read_close,
-    .priv_class     = &ijklivehook_class,
 };

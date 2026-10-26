@@ -18,12 +18,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 #
 
-if (ANDROID)
-    if (${ANDROID_ABI} STREQUAL "armeabi-v7a")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=soft")
-    endif ()
-endif ()
-
 set(BUILD_SOURCES
     ff_fferror.h
     ff_ffinc.h
@@ -56,7 +50,6 @@ set(BUILD_SOURCES
 
     ijkavformat/allformats.c
     ijkavformat/ijklivehook.c
-    ijkavformat/ijkmediadatasource.c
     ijkavformat/ijkio.c
     ijkavformat/ijkiomanager.c
     ijkavformat/ijkiocache.c
@@ -75,6 +68,7 @@ set(BUILD_SOURCES
     ijkavutil/ijktree.c
     ijkavutil/ijkfifo.c
     ijkavutil/ijkstl.cpp
+
 )
 
 if(WIN32)
@@ -85,26 +79,42 @@ if(WIN32)
 endif()
 
 set(ANDROID_IJKPLAYER_SOURCES
-    ijkavformat/ijkioandroidio.c
     android/ffmpeg_api_jni.c
     android/ijkplayer_android.c
     android/ijkplayer_jni.c
     android/pipeline/ffpipeline_android.c
-    android/pipeline/ffpipenode_android_mediacodec_vdec.c
 )
 
-set(DESKTOP_UNI_SOURCE
-    desktop/pipeline_desktop.h
-    desktop/pipeline_desktop.c
+set(WINDOWS_UNI_SOURCE
+    windows/pipeline_windows.h
+    windows/pipeline_windows.c
 )
+
+set(OHOS_SOURCES
+    ohos/pipeline_ohos.h
+    ohos/pipeline_ohos.c
+    ohos/ffpipenode_ohos_mediacodec_vdec.h
+    ohos/ffpipenode_ohos_mediacodec_vdec.cpp
+    ohos/ohos_video_decoder.h
+    ohos/ohos_video_decoder.cpp
+    ohos/ohos_video_decoder_data.h
+    ohos/ohos_video_decoder_data.cpp
+    ohos/ohos_video_decoder_Info.h
+    ohos/ohos_video_decoder_Info.cpp
+)
+
+if (IJK_OHOS)
+    set(BUILD_SOURCES ${BUILD_SOURCES} ${OHOS_SOURCES})
+    add_definitions(-D__OHOS__=1)
+endif ()
 
 if (ANDROID)
     set(BUILD_SOURCES ${BUILD_SOURCES} ${ANDROID_IJKPLAYER_SOURCES})
 endif ()
 
 
-if (IJK_DESKTOP_UNI)
-    set(BUILD_SOURCES ${BUILD_SOURCES} ${DESKTOP_UNI_SOURCE})
+if (IJK_WINDOWS_UNI)
+    set(BUILD_SOURCES ${BUILD_SOURCES} ${WINDOWS_UNI_SOURCE})
     add_library(ijkplayer_static STATIC ${BUILD_SOURCES})
     set(IJKPLAYER_LIB_NAME ijkplayer_static)
 else ()
@@ -112,9 +122,7 @@ else ()
     set(IJKPLAYER_LIB_NAME ijkplayer)
 endif ()
 
-if (IJK_DESKTOP_UNI)
-    target_include_directories(${IJKPLAYER_LIB_NAME} PRIVATE ${IJKROOT_PATH}/desktop/glfw/deps)
-    target_include_directories(${IJKPLAYER_LIB_NAME} PRIVATE ${IJKROOT_PATH}/desktop/glfw/include)
+if (IJK_WINDOWS_UNI)
 endif ()
 target_include_directories(${IJKPLAYER_LIB_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_include_directories(${IJKPLAYER_LIB_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
@@ -128,18 +136,25 @@ target_include_directories(${IJKPLAYER_LIB_NAME} PRIVATE pipeline)
 target_include_directories(${IJKPLAYER_LIB_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../ijkj4a)
 
 if (WIN32)
-    target_include_directories(${IJKPLAYER_LIB_NAME} PRIVATE "${IJK_DESKTOP_PTHREAD_BUILD_DIR}/../../include")
+    target_include_directories(${IJKPLAYER_LIB_NAME} PRIVATE "${IJK_WINDOWS_PTHREAD_BUILD_DIR}/../../include")
 endif()
 
-if (NOT IJK_DESKTOP_UNI)
+if (NOT IJK_WINDOWS_UNI)
     target_link_libraries(${IJKPLAYER_LIB_NAME} ijksdl)
 endif()
 
 if (ANDROID)
     target_link_libraries(${IJKPLAYER_LIB_NAME} ijksoundtouch)
     target_link_libraries(${IJKPLAYER_LIB_NAME} ijkffmpeg)
-    target_link_libraries(${IJKPLAYER_LIB_NAME} android-ndk-profiler)
     target_link_libraries(${IJKPLAYER_LIB_NAME} log)
     target_link_libraries(${IJKPLAYER_LIB_NAME} android)
+    # The native stack is linked into this one library; do not re-export
+    # symbols that came from static archives (FFmpeg, ijksdl, j4a, libc++).
+    target_link_options(${IJKPLAYER_LIB_NAME} PRIVATE "-Wl,--exclude-libs,ALL")
 endif ()
 
+if (IJK_OHOS)
+    target_link_libraries(${IJKPLAYER_LIB_NAME} ijksdl)
+    target_link_libraries(${IJKPLAYER_LIB_NAME} EGL GLESv3 native_window ohaudio hilog_ndk.z)
+    target_link_libraries(${IJKPLAYER_LIB_NAME} native_media_codecbase native_media_core native_media_vdec native_media_venc native_buffer deviceinfo_ndk.z)
+endif ()

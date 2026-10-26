@@ -28,6 +28,5 @@
 #include "../ijksdl_aout.h"
 
 SDL_Aout *SDL_AoutAndroid_CreateForOpenSLES();
-bool      SDL_AoutAndroid_IsObjectOfOpenSLES(SDL_Aout *aout);
 
 #endif
