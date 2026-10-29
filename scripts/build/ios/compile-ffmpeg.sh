@@ -143,6 +143,7 @@ do_lipo_all () {
             cp -f "ffmpeg-$ARCH/libavformat/url.h"     "$UNI_INC_DIR/libavformat/url.h"
             cp -f "ffmpeg-$ARCH/libavformat/demux.h"   "$UNI_INC_DIR/libavformat/demux.h"
             cp -f tools/application.h                   "$UNI_INC_DIR/libavutil/application.h"
+            cp -f "ffmpeg-$ARCH/libavutil/thread.h"      "$UNI_INC_DIR/libavutil/thread.h"
         fi
     done
 

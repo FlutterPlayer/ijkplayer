@@ -358,6 +358,7 @@ cp -f config.h $FF_PREFIX/include/libffmpeg/config.h
 cp -f "$REPO_DIR/platform/ios/tools/application.h" "$FF_PREFIX/include/libavutil/application.h"
 cp -f "$FF_SOURCE/libavformat/url.h" "$FF_PREFIX/include/libavformat/url.h"
 cp -f "$FF_SOURCE/libavformat/demux.h" "$FF_PREFIX/include/libavformat/demux.h"
+cp -f "$FF_SOURCE/libavutil/thread.h" "$FF_PREFIX/include/libavutil/thread.h"
 
 #--------------------
 echo ""
