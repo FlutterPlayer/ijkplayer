@@ -58,7 +58,9 @@ jobs:
           export ANDROID_NDK="$ANDROID_HOME/ndk/29.0.14206865"
           ./gradlew :library:assembleRelease -PVERSION_NAME="${RELEASE_TAG}"
           if [ -n "${NEXUS_PASSWORD:-}" ]; then
-            ./gradlew -PVERSION_NAME="${RELEASE_TAG}" :library:publish
+            if ! ./gradlew -PVERSION_NAME="${RELEASE_TAG}" :library:publish; then
+              echo "Maven publish failed; continuing with GitHub release assets"
+            fi
           fi
       - name: Collect Android assets
         run: |
