@@ -58,7 +58,7 @@ jobs:
           export ANDROID_NDK="$ANDROID_HOME/ndk/29.0.14206865"
           ./gradlew :library:assembleRelease -PVERSION_NAME="${RELEASE_TAG}"
           if [ -n "${NEXUS_PASSWORD:-}" ]; then
-            if ! ./gradlew -PVERSION_NAME="${RELEASE_TAG}" :library:publish; then
+            if ! ./gradlew -PVERSION_NAME="${RELEASE_TAG}" :library:publishToSonatype closeAndReleaseSonatypeStagingRepository; then
               echo "Maven publish failed; continuing with GitHub release assets"
             fi
           fi

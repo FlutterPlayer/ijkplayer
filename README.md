@@ -30,7 +30,10 @@ Every tagged release publishes one version for all consumers:
 The release workflow is [.github/workflows/release.yml](.github/workflows/release.yml).
 A tag push builds Android, iOS, macOS and Windows, publishes the Android
 artifact to Maven Central when the Nexus secrets are configured, and attaches
-those assets to the GitHub Release. Run `workflow_dispatch` with `build_ohos`
+those assets to the GitHub Release. The Android job runs
+`:library:publishToSonatype` and `closeAndReleaseSonatypeStagingRepository` in
+one invocation, so a successful publish closes and releases its staging
+repository instead of leaving it open. Run `workflow_dispatch` with `build_ohos`
 to build the OpenHarmony HAR on a self-hosted runner and attach it to the same
 tag.
 

@@ -101,21 +101,6 @@ afterEvaluate {
                 }
             }
         }
-        repositories {
-            val releaseUrl = providers.gradleProperty("RELEASE_REPOSITORY_URL").orNull
-            if (!releaseUrl.isNullOrBlank()) {
-                maven {
-                    name = "sonatype"
-                    setUrl(releaseUrl)
-                    credentials {
-                        username = System.getenv("NEXUS_USERNAME")
-                            ?: providers.gradleProperty("NEXUS_USERNAME").orNull
-                        password = providers.gradleProperty("NEXUS_PASSWORD").orNull
-                            ?: System.getenv("NEXUS_PASSWORD")
-                    }
-                }
-            }
-        }
     }
     signing {
         val key = providers.gradleProperty("signingKey").orNull

@@ -16,7 +16,7 @@ Pod::Spec.new do |spec|
   #
 
   spec.name         = "fplayercore"
-  spec.version      = "1.0.4"
+  spec.version      = "1.2.11"
   spec.summary      = "fplayer core project"
 
   # This description is used to generate tags and improve search results.
