@@ -65,9 +65,9 @@ do_lipo_all() {
         cp -R "$UNI_BUILD_ROOT/ffmpeg-arm64/output/include/"* "$UNI_OUT/include/"
     fi
     cp -f "$REPO_DIR/platform/ios/tools/application.h" "$UNI_OUT/include/libavutil/application.h"
-    cp -f "$UNI_BUILD_ROOT/ffmpeg-arm64/libavformat/url.h" "$UNI_OUT/include/libavformat/url.h"
-    cp -f "$UNI_BUILD_ROOT/ffmpeg-arm64/libavformat/demux.h" "$UNI_OUT/include/libavformat/demux.h"
-    cp -f "$UNI_BUILD_ROOT/ffmpeg-arm64/libavutil/thread.h" "$UNI_OUT/include/libavutil/thread.h"
+    cp -f "$REPO_DIR/platform/macos/contrib/ffmpeg-arm64/libavformat/url.h" "$UNI_OUT/include/libavformat/url.h"
+    cp -f "$REPO_DIR/platform/macos/contrib/ffmpeg-arm64/libavformat/demux.h" "$UNI_OUT/include/libavformat/demux.h"
+    cp -f "$REPO_DIR/platform/macos/contrib/ffmpeg-arm64/libavutil/thread.h" "$UNI_OUT/include/libavutil/thread.h"
     xcrun lipo -info "$UNI_OUT/lib/libavcodec.a" 2>/dev/null || true
 }
 
