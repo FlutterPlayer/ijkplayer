@@ -20,8 +20,8 @@
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../.." && pwd )"
 cd "$REPO_DIR"
 IJK_FFMPEG_UPSTREAM=https://github.com/FFmpeg/FFmpeg.git
-IJK_FFMPEG_FORK=https://github.com/FFmpeg/FFmpeg.git
-IJK_FFMPEG_COMMIT=n8.0.3
+IJK_FFMPEG_FORK=https://github.com/FlutterPlayer/FFmpeg.git
+IJK_FFMPEG_COMMIT=ijk-n8.0.3
 IJK_FFMPEG_LOCAL_REPO=extra/ffmpeg
 
 set -e

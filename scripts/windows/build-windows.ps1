@@ -14,12 +14,13 @@ $vswhere = Join-Path ([Environment]::GetFolderPath("ProgramFilesX86")) "Microsof
 if (-not (Test-Path $vswhere)) {
     throw "vswhere.exe not found"
 }
-$vsPath = (& $vswhere -latest -products * -version 17 -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+$vsPath = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
 if (-not $vsPath) {
-    $vsPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
-}
-if (-not (Test-Path $vsPath)) {
     throw "Visual Studio C++ toolchain not found"
+}
+$vcvars = Join-Path $vsPath "VC\Auxiliary\Build\vcvars64.bat"
+if (-not (Test-Path $vcvars)) {
+    throw "vcvars64.bat not found"
 }
 
 $cmake = (Get-Command cmake.exe -ErrorAction SilentlyContinue).Source
@@ -33,39 +34,30 @@ if (-not (Test-Path (Join-Path $VcpkgRoot "scripts\buildsystems\vcpkg.cmake"))) 
     throw "vcpkg toolchain not found under $VcpkgRoot"
 }
 
-$cmakeArgs = @(
-    "-S", $SourceDir,
-    "-B", $BuildDir,
-    "-G", "Visual Studio 17 2022",
-    "-A", "x64",
-    "-DCMAKE_GENERATOR_INSTANCE=$vsPath",
-    "-DCMAKE_TOOLCHAIN_FILE=$(Join-Path $VcpkgRoot 'scripts\buildsystems\vcpkg.cmake')",
-    "-DVCPKG_TARGET_TRIPLET=$Triplet",
-    "-DCMAKE_BUILD_TYPE=$Configuration"
-)
-& $cmake @cmakeArgs
+$toolchain = Join-Path $VcpkgRoot "scripts\buildsystems\vcpkg.cmake"
+$cmakeArgs = "-S `"$SourceDir`" -B `"$BuildDir`" -G Ninja -DCMAKE_BUILD_TYPE=$Configuration -DCMAKE_TOOLCHAIN_FILE=`"$toolchain`" -DVCPKG_TARGET_TRIPLET=$Triplet"
+cmd.exe /c "call `"$vcvars`" && `"$cmake`" $cmakeArgs"
 if ($LASTEXITCODE -ne 0) {
     throw "cmake configure failed"
 }
 
-& $cmake --build $BuildDir --config $Configuration --target fplayercore
+cmd.exe /c "call `"$vcvars`" && `"$cmake`" --build `"$BuildDir`" --target fplayercore"
 if ($LASTEXITCODE -ne 0) {
     throw "cmake build failed"
 }
 
-$configDir = Join-Path $BuildDir $Configuration
-$dll = Join-Path $configDir "fplayercore.dll"
-$lib = Join-Path $configDir "fplayercore.lib"
-if (-not (Test-Path $dll) -or -not (Test-Path $lib)) {
-    throw "fplayercore outputs not found in $configDir"
+$dll = Get-ChildItem -Path $BuildDir -Recurse -Filter fplayercore.dll | Select-Object -First 1
+$lib = Get-ChildItem -Path $BuildDir -Recurse -Filter fplayercore.lib | Select-Object -First 1
+if ($null -eq $dll -or $null -eq $lib) {
+    throw "fplayercore outputs not found under $BuildDir"
 }
 
 $outBin = Join-Path $BuildDir "bin"
 $outLib = Join-Path $BuildDir "lib"
 $outInclude = Join-Path $BuildDir "include"
 New-Item -ItemType Directory -Force $outBin, $outLib, $outInclude | Out-Null
-Copy-Item $dll (Join-Path $outBin "fplayercore.dll") -Force
-Copy-Item $lib (Join-Path $outLib "fplayercore.lib") -Force
+Copy-Item $dll.FullName (Join-Path $outBin "fplayercore.dll") -Force
+Copy-Item $lib.FullName (Join-Path $outLib "fplayercore.lib") -Force
 Copy-Item (Join-Path $SourceDir "sources\fplayercore.h") (Join-Path $outInclude "fplayercore.h") -Force
 
 Write-Host "fplayercore.dll: $outBin\fplayercore.dll"

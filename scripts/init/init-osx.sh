@@ -19,8 +19,8 @@
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../.." && pwd )"
 cd "$REPO_DIR"
 IJK_FFMPEG_UPSTREAM=https://github.com/FFmpeg/FFmpeg.git
-IJK_FFMPEG_FORK=https://github.com/FFmpeg/FFmpeg.git
-IJK_FFMPEG_COMMIT=n8.0.3
+IJK_FFMPEG_FORK=https://github.com/FlutterPlayer/FFmpeg.git
+IJK_FFMPEG_COMMIT=ijk-n8.0.3
 IJK_FFMPEG_LOCAL_REPO=extra/ffmpeg
 
 IJK_GASP_UPSTREAM=https://github.com/Bilibili/gas-preprocessor.git
@@ -41,7 +41,7 @@ set -e
 TOOLS=scripts/tools
 
 # FF_ALL_ARCHS="i386 x86_64"
-FF_ALL_ARCHS="x86_64"
+FF_ALL_ARCHS="x86_64 arm64"
 FF_TARGET=$1
 
 function echo_ffmpeg_version() {
