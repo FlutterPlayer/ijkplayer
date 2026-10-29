@@ -69,14 +69,14 @@ case "$FF_TARGET" in
     ;;
     arm64|x86|x86_64)
         echo_archs $FF_TARGET $FF_TARGET_EXTRA
-        sh "$SCRIPT_DIR/tools/do-compile-ffmpeg.sh" $FF_TARGET $FF_TARGET_EXTRA
+        bash "$SCRIPT_DIR/tools/do-compile-ffmpeg.sh" $FF_TARGET $FF_TARGET_EXTRA
         echo_nextstep_help
     ;;
     all32)
         echo_archs $FF_ACT_ARCHS_32
         for ARCH in $FF_ACT_ARCHS_32
         do
-            sh "$SCRIPT_DIR/tools/do-compile-ffmpeg.sh" $ARCH $FF_TARGET_EXTRA
+            bash "$SCRIPT_DIR/tools/do-compile-ffmpeg.sh" $ARCH $FF_TARGET_EXTRA
         done
         echo_nextstep_help
     ;;
@@ -84,7 +84,7 @@ case "$FF_TARGET" in
         echo_archs $FF_ACT_ARCHS_64
         for ARCH in $FF_ACT_ARCHS_64
         do
-            sh "$SCRIPT_DIR/tools/do-compile-ffmpeg.sh" $ARCH $FF_TARGET_EXTRA
+            bash "$SCRIPT_DIR/tools/do-compile-ffmpeg.sh" $ARCH $FF_TARGET_EXTRA
         done
         echo_nextstep_help
     ;;
@@ -92,7 +92,7 @@ case "$FF_TARGET" in
         echo_archs $FF_ACT_ARCHS_ALL
         for ARCH in $FF_ACT_ARCHS_ALL
         do
-            sh "$SCRIPT_DIR/tools/do-compile-ffmpeg.sh" $ARCH $FF_TARGET_EXTRA
+            bash "$SCRIPT_DIR/tools/do-compile-ffmpeg.sh" $ARCH $FF_TARGET_EXTRA
         done
         echo_nextstep_help
     ;;
