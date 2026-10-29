@@ -24,7 +24,9 @@
 #ifndef IJKSDLViewProtocol_h
 #define IJKSDLViewProtocol_h
 
-#if IJK_OSX
+#include <TargetConditionals.h>
+
+#if TARGET_OS_OSX || IJK_OSX
 #import <AppKit/AppKit.h>
 #else
 #import <UIKit/UIKit.h>
@@ -45,7 +47,7 @@ struct IJKOverlay {
 
 @protocol IJKSDLViewProtocol <NSObject>
 
-#if IJK_OSX
+#if TARGET_OS_OSX || IJK_OSX
 @optional
 - (NSImage*) snapshot;
 #else
