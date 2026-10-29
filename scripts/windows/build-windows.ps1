@@ -10,10 +10,17 @@ $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $SourceDir = Join-Path $RepoRoot "platform\windows"
 $BuildDir = Join-Path $RepoRoot "build\windows"
 
+$vswhere = Join-Path ([Environment]::GetFolderPath("ProgramFilesX86")) "Microsoft Visual Studio\Installer\vswhere.exe"
+if (-not (Test-Path $vswhere)) {
+    throw "vswhere.exe not found"
+}
+$vsPath = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+if (-not $vsPath) {
+    throw "Visual Studio C++ toolchain not found"
+}
+
 $cmake = (Get-Command cmake.exe -ErrorAction SilentlyContinue).Source
 if (-not $cmake) {
-    $vswhere = Join-Path ([Environment]::GetFolderPath("ProgramFilesX86")) "Microsoft Visual Studio\Installer\vswhere.exe"
-    $vsPath = & $vswhere -latest -products * -property installationPath
     $cmake = Join-Path $vsPath "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
 }
 if (-not (Test-Path $cmake)) {
@@ -28,6 +35,7 @@ $cmakeArgs = @(
     "-B", $BuildDir,
     "-G", "Visual Studio 17 2022",
     "-A", "x64",
+    "-DCMAKE_GENERATOR_INSTANCE=$vsPath",
     "-DCMAKE_TOOLCHAIN_FILE=$(Join-Path $VcpkgRoot 'scripts\buildsystems\vcpkg.cmake')",
     "-DVCPKG_TARGET_TRIPLET=$Triplet",
     "-DCMAKE_BUILD_TYPE=$Configuration"
