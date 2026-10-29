@@ -119,7 +119,7 @@ do_build_boringssl() {
     CLANG_BIN=$(ls -d ${ANDROID_NDK}/toolchains/llvm/prebuilt/*/bin | head -1)
     ${CLANG_BIN}/clang --target=${CLANG_TARGET} -O2 -fPIC \
         -I boringssl/include \
-        -c boringssl-compat/boringssl_compat.c \
+        -c ../boringssl-compat/boringssl_compat.c \
         -o "$OUTPUT_DIR"/boringssl-${ARCH}/boringssl_compat.o
     ${CLANG_BIN}/llvm-ar r "$OUTPUT_DIR"/output-${ARCH}/lib/libssl.a "$OUTPUT_DIR"/boringssl-${ARCH}/boringssl_compat.o
 

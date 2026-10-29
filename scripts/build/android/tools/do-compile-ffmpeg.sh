@@ -355,6 +355,8 @@ make $FF_MAKE_FLAGS > /dev/null
 make install
 mkdir -p $FF_PREFIX/include/libffmpeg
 cp -f config.h $FF_PREFIX/include/libffmpeg/config.h
+cp -f "$REPO_DIR/platform/ios/tools/application.h" "$FF_PREFIX/include/libavutil/application.h"
+cp -f "$FF_SOURCE/libavformat/url.h" "$FF_PREFIX/include/libavformat/url.h"
 
 #--------------------
 echo ""

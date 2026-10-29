@@ -64,6 +64,8 @@ do_lipo_all() {
     if [ -d "$UNI_BUILD_ROOT/ffmpeg-arm64/output/include" ]; then
         cp -R "$UNI_BUILD_ROOT/ffmpeg-arm64/output/include/"* "$UNI_OUT/include/"
     fi
+    cp -f "$REPO_DIR/platform/ios/tools/application.h" "$UNI_OUT/include/libavutil/application.h"
+    cp -f "$UNI_BUILD_ROOT/ffmpeg-arm64/libavformat/url.h" "$UNI_OUT/include/libavformat/url.h"
     xcrun lipo -info "$UNI_OUT/lib/libavcodec.a" 2>/dev/null || true
 }
 
