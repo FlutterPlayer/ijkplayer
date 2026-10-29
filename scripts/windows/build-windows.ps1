@@ -14,7 +14,7 @@ $vswhere = Join-Path ([Environment]::GetFolderPath("ProgramFilesX86")) "Microsof
 if (-not (Test-Path $vswhere)) {
     throw "vswhere.exe not found"
 }
-$vsPath = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+$vsPath = (& $vswhere -latest -products * -version "[17.0,18.0)" -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
 if (-not $vsPath) {
     throw "Visual Studio C++ toolchain not found"
 }
