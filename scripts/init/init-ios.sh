@@ -82,7 +82,9 @@ function pull_fork_all() {
 }
 
 function sync_ff_version() {
-    sed -i '' "s/static const char \*kIJKFFRequiredFFmpegVersion\ \=\ .*/static const char *kIJKFFRequiredFFmpegVersion = \"${IJK_FFMPEG_COMMIT}\";/g" platform/ios/IJKMediaPlayer/IJKMediaPlayer/IJKFFMoviePlayerController.m
+    if [ -f platform/ios/IJKMediaPlayer/IJKMediaPlayer/IJKFFMoviePlayerController.m ]; then
+        sed -i '' "s/static const char \*kIJKFFRequiredFFmpegVersion\ \=\ .*/static const char *kIJKFFRequiredFFmpegVersion = \"${IJK_FFMPEG_COMMIT}\";/g" platform/ios/IJKMediaPlayer/IJKMediaPlayer/IJKFFMoviePlayerController.m
+    fi
 }
 
 #----------
