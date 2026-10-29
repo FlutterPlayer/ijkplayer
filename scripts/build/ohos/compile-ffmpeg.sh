@@ -7,6 +7,8 @@
 #
 set -euo pipefail
 
+NCPU="$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
+
 FF_ARCH=$1
 if [ -z "${FF_ARCH}" ]; then
     echo "Usage: OHOS_SDK=... compile-ffmpeg.sh arm64|x86_64"
@@ -114,7 +116,7 @@ cd "$BUILD_DIR"
     $TLS_CFG_FLAGS \
     $COMMON_FF_CFG_FLAGS
 
-make -j"$(sysctl -n hw.ncpu)"
+make -j"$NCPU"
 make install
 
 mkdir -p "$OUTPUT_DIR/include/libffmpeg"

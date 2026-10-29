@@ -11,7 +11,7 @@ on:
         required: true
         type: string
       build_ohos:
-        description: Build the OpenHarmony HAR on a [self-hosted, ohos] runner
+        description: Build the OpenHarmony HAR on ubuntu-latest
         required: false
         default: false
         type: boolean
@@ -150,12 +150,35 @@ jobs:
           if-no-files-found: error
 
   ohos:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_ohos == 'true'
-    runs-on: [self-hosted, ohos]
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.build_ohos == 'true')
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install OHOS host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev cmake ninja-build
+      - name: Setup HarmonyOS CLI tools
+        uses: ErBWs/setup-ohos@v2
+        with:
+          version: 26.0.0.821
+          cache: true
+      - name: Prepare OHOS SDK environment
+        run: bash scripts/ci/prepare-ohos.sh
+      - name: Init OHOS FFmpeg and OpenSSL
+        run: |
+          git clone --depth 1 --branch ijk-n8.0.3 \
+            https://github.com/FlutterPlayer/FFmpeg.git extra/ffmpeg-ijk8
+          mkdir -p build/ohos/deps
+          curl -fL --retry 3 -o build/ohos/deps/openssl-3.0.15.tar.gz \
+            https://github.com/openssl/openssl/releases/download/openssl-3.0.15/openssl-3.0.15.tar.gz
       - name: Build OHOS dependencies
-        run: bash scripts/build/ohos/compile-ffmpeg.sh arm64
+        run: |
+          bash scripts/build/ohos/compile-openssl.sh arm64
+          bash scripts/build/ohos/compile-ffmpeg.sh arm64
+          bash scripts/build/ohos/compile-ijk.sh arm64
       - name: Package OHOS HAR
         run: bash scripts/build/ohos/package-har.sh
       - name: Stage OHOS asset

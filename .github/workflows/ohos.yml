@@ -1,0 +1,91 @@
+name: OHOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to attach the HAR to
+        required: true
+        type: string
+      publish:
+        description: Upload the HAR and update the release manifest
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: ${{ github.event.inputs.tag }}
+
+jobs:
+  ohos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install OHOS host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev cmake ninja-build
+      - name: Setup HarmonyOS CLI tools
+        uses: ErBWs/setup-ohos@v2
+        with:
+          version: 26.0.0.821
+          cache: true
+      - name: Prepare OHOS SDK environment
+        run: bash scripts/ci/prepare-ohos.sh
+      - name: Init OHOS FFmpeg and OpenSSL
+        run: |
+          git clone --depth 1 --branch ijk-n8.0.3 \
+            https://github.com/FlutterPlayer/FFmpeg.git extra/ffmpeg-ijk8
+          mkdir -p build/ohos/deps
+          curl -fL --retry 3 -o build/ohos/deps/openssl-3.0.15.tar.gz \
+            https://github.com/openssl/openssl/releases/download/openssl-3.0.15/openssl-3.0.15.tar.gz
+      - name: Build OHOS dependencies
+        run: |
+          bash scripts/build/ohos/compile-openssl.sh arm64
+          bash scripts/build/ohos/compile-ffmpeg.sh arm64
+          bash scripts/build/ohos/compile-ijk.sh arm64
+      - name: Package OHOS HAR
+        run: bash scripts/build/ohos/package-har.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ohos
+          path: build/ohos/fplayercore-ohos.har
+          if-no-files-found: error
+      - name: Publish OHOS asset
+        if: github.event.inputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh release download "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" \
+            -p fplayercore-manifest.json -D dist
+          cp build/ohos/fplayercore-ohos.har dist/fplayercore-ohos.har
+          python3 - "$RELEASE_TAG" <<'PY'
+          import hashlib
+          import json
+          import os
+          import sys
+
+          tag = sys.argv[1]
+          har = "dist/fplayercore-ohos.har"
+          digest = hashlib.sha256(open(har, "rb").read()).hexdigest()
+          path = "dist/fplayercore-manifest.json"
+          with open(path, encoding="utf-8") as handle:
+              manifest = json.load(handle)
+          manifest["assets"] = [
+              asset for asset in manifest.get("assets", [])
+              if asset.get("name") != "fplayercore-ohos.har"
+          ]
+          manifest["assets"].append({"name": "fplayercore-ohos.har", "sha256": digest})
+          manifest["assets"].sort(key=lambda asset: asset["name"])
+          with open(path, "w", encoding="utf-8") as handle:
+              json.dump(manifest, handle, indent=2)
+              handle.write("\n")
+          print(f"{tag}: {digest}")
+          PY
+          gh release upload "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" \
+            dist/fplayercore-ohos.har dist/fplayercore-manifest.json --clobber

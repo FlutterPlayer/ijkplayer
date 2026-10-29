@@ -10,6 +10,8 @@
 # (OpenSSL 1.0.2 in extra/openssl is too old for FFmpeg 8's tls_openssl.c).
 set -euo pipefail
 
+NCPU="$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
+
 FF_ARCH=${1:-arm64}
 OPENSSL_VERSION=${OPENSSL_VERSION:-3.0.15}
 
@@ -62,7 +64,7 @@ cd "$SOURCE_DIR"
     no-legacy \
     -fPIC
 
-make -j"$(sysctl -n hw.ncpu)"
+make -j"$NCPU"
 make install_sw
 
 echo "OpenSSL installed to $OUTPUT_DIR"

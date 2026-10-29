@@ -28,12 +28,14 @@ Every tagged release publishes one version for all consumers:
 | All | `fplayercore-manifest.json` | version, commit and SHA-256 of every asset |
 
 The release workflow is [.github/workflows/release.yml](.github/workflows/release.yml).
-A tag push builds Android, iOS, macOS and Windows, publishes the Android
-artifact to Maven Central when the Nexus secrets are configured, and attaches
-those assets to the GitHub Release. The Android job runs
+A tag push builds Android, iOS, macOS, Windows and OpenHarmony, publishes the
+Android artifact to Maven Central when the Nexus secrets are configured, and
+attaches those assets to the GitHub Release. The Android job runs
 `:library:publishToSonatype` and `closeAndReleaseSonatypeStagingRepository` in
 one invocation, so a successful publish closes and releases its staging
-repository instead of leaving it open. Run `workflow_dispatch` with `build_ohos`
+repository instead of leaving it open. The OHOS job runs on `ubuntu-latest`,
+installs HarmonyOS command-line tools with `ErBWs/setup-ohos` (SDK
+`26.0.0.821`), builds OpenSSL/FFmpeg/native libraries and packages the HAR. Run `workflow_dispatch` with `build_ohos`
 to build the OpenHarmony HAR on a self-hosted runner and attach it to the same
 tag.
 
@@ -46,12 +48,10 @@ Before tagging, set `spec.version` in
 `platform/ios/CocoaPodsConfig/fplayercore.podspec` to the same version; the
 Gradle Android version is supplied by `-PVERSION_NAME=<tag>` in the workflow.
 
-`workflow_dispatch` can rebuild a tag and opt into the OpenHarmony job. The OHOS
-job runs on a `[self-hosted, ohos]` runner with the OpenHarmony SDK, DevEco
-toolchain, `OHOS_BASE_SDK_HOME`, `DEVECO_SDK_HOME`, and `hvigorw`/`ohpm` on
-`PATH`; GitHub-hosted runners do not include them. A release without the OHOS
-job has no `fplayercore-ohos.har`; run the dispatch before fetching that tag in
-`fplayer`.
+`workflow_dispatch` can rebuild a tag and opt into the OpenHarmony job with
+`build_ohos=true`; tag pushes include OHOS automatically. The OHOS job uses
+GitHub-hosted Ubuntu and the `ErBWs/setup-ohos` action, so no self-hosted runner
+is required.
 
 ## Consumed by fplayer
 
@@ -168,7 +168,9 @@ Outputs are staged under `build/windows/{bin,lib,include}`. Package them as
 export OHOS_SDK=/path/to/openharmony/sdk/native
 export OHOS_BASE_SDK_HOME=/path/to/openharmony/sdk
 export DEVECO_SDK_HOME=/path/to/deveco/sdk
+./scripts/build/ohos/compile-openssl.sh arm64
 ./scripts/build/ohos/compile-ffmpeg.sh arm64
+./scripts/build/ohos/compile-ijk.sh arm64
 ./scripts/build/ohos/package-har.sh
 ```
 

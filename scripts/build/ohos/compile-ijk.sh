@@ -7,6 +7,8 @@
 #
 set -euo pipefail
 
+NCPU="$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
+
 FF_ARCH=$1
 if [ -z "${FF_ARCH}" ]; then
     echo "Usage: OHOS_SDK=... compile-ijk.sh arm64|x86_64"
@@ -51,4 +53,4 @@ cmake -S "$REPO_DIR/platform/ohos/src/main/cpp" \
     -DCMAKE_BUILD_TYPE=Release \
     -DIJK_FFMPEG_ROOT="$REPO_DIR/build/ohos/deps/output-$FF_ARCH"
 
-cmake --build "$BUILD_DIR" -j"$(sysctl -n hw.ncpu)"
+cmake --build "$BUILD_DIR" -j"$NCPU"
