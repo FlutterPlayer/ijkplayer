@@ -140,6 +140,7 @@ do_lipo_all () {
             mkdir -p "$UNI_INC_DIR/libffmpeg/$ARCH"
             cp -f "$ARCH_INC_DIR/libffmpeg/config.h"    "$UNI_INC_DIR/libffmpeg/$ARCH/config.h"
             cp -f tools/config.h                        "$UNI_INC_DIR/libffmpeg/config.h"
+            cp -f "ffmpeg-$ARCH/libavformat/url.h"     "$UNI_INC_DIR/libavformat/url.h"
         fi
     done
 
