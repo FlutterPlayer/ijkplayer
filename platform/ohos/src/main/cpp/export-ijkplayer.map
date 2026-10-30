@@ -1,6 +1,7 @@
 {
   global:
     ijkmp_*;
+    ijkmeta_*;
   local:
     *;
 };

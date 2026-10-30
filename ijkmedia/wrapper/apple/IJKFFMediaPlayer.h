@@ -94,6 +94,8 @@ typedef void(^OnSnapshotBlock) (UIImage* __nullable image , NSError* __nullable 
 
 - (void) setStreamSelected:(int) stream selected:(BOOL) selected;
 
+- (NSArray<NSDictionary<NSString *, id> *> *) getTrackInfo;
+
 - (float) getFloatProperty:(int) property defalut:(float) value;
 - (int64_t) getLongProperty:(int) property default:(int64_t) value;
 

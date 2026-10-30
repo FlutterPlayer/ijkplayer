@@ -448,6 +448,89 @@ napi_value js_get_duration(napi_env env, napi_callback_info info)
     return result;
 }
 
+napi_value js_get_track_info(napi_env env, napi_callback_info info)
+{
+    size_t argc = 1;
+    napi_value argv[1];
+    napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);
+    PlayerContext *ctx = player_from_args(env, argv, argc);
+
+    napi_value result;
+    IjkMediaMeta *meta = ctx ? ijkmp_get_meta_l(ctx->mp) : nullptr;
+    if (!meta) {
+        napi_create_array_with_length(env, 0, &result);
+        return result;
+    }
+
+    int64_t selectedVideo = ijkmp_get_property_int64(ctx->mp, FFP_PROP_INT64_SELECTED_VIDEO_STREAM, -1);
+    int64_t selectedAudio = ijkmp_get_property_int64(ctx->mp, FFP_PROP_INT64_SELECTED_AUDIO_STREAM, -1);
+    int64_t selectedTimedText = ijkmp_get_property_int64(ctx->mp, FFP_PROP_INT64_SELECTED_TIMEDTEXT_STREAM, -1);
+
+    ijkmeta_lock(meta);
+    size_t count = ijkmeta_get_children_count_l(meta);
+    napi_create_array_with_length(env, count, &result);
+    for (size_t i = 0; i < count; ++i) {
+        IjkMediaMeta *stream = ijkmeta_get_child_l(meta, i);
+        if (!stream)
+            continue;
+
+        const char *type = ijkmeta_get_string_l(stream, IJKM_KEY_TYPE);
+        if (!type)
+            type = IJKM_VAL_TYPE__UNKNOWN;
+        int64_t selected = -1;
+        if (0 == std::strcmp(type, IJKM_VAL_TYPE__VIDEO))
+            selected = selectedVideo;
+        else if (0 == std::strcmp(type, IJKM_VAL_TYPE__AUDIO))
+            selected = selectedAudio;
+        else if (0 == std::strcmp(type, IJKM_VAL_TYPE__TIMEDTEXT))
+            selected = selectedTimedText;
+
+        napi_value track;
+        napi_create_object(env, &track);
+
+        napi_value value;
+        napi_create_int32(env, (int32_t)i, &value);
+        napi_set_named_property(env, track, "index", value);
+        napi_create_string_utf8(env, type, NAPI_AUTO_LENGTH, &value);
+        napi_set_named_property(env, track, "type", value);
+        napi_get_boolean(env, selected == (int64_t)i, &value);
+        napi_set_named_property(env, track, "selected", value);
+
+        const char *language = ijkmeta_get_string_l(stream, IJKM_KEY_LANGUAGE);
+        napi_create_string_utf8(env, language ? language : "", NAPI_AUTO_LENGTH, &value);
+        napi_set_named_property(env, track, "language", value);
+        const char *codec = ijkmeta_get_string_l(stream, IJKM_KEY_CODEC_NAME);
+        napi_create_string_utf8(env, codec ? codec : "", NAPI_AUTO_LENGTH, &value);
+        napi_set_named_property(env, track, "codec", value);
+        const char *codecLongName = ijkmeta_get_string_l(stream, IJKM_KEY_CODEC_LONG_NAME);
+        napi_create_string_utf8(env, codecLongName ? codecLongName : "", NAPI_AUTO_LENGTH, &value);
+        napi_set_named_property(env, track, "codec_long_name", value);
+
+        napi_create_int32(env, (int32_t)ijkmeta_get_int64_l(stream, IJKM_KEY_SAMPLE_RATE, 0), &value);
+        napi_set_named_property(env, track, "sample_rate", value);
+        napi_create_int64(env, ijkmeta_get_int64_l(stream, IJKM_KEY_CHANNEL_LAYOUT, 0), &value);
+        napi_set_named_property(env, track, "channel_layout", value);
+
+        napi_set_element(env, result, (uint32_t)i, track);
+    }
+    ijkmeta_unlock(meta);
+    return result;
+}
+
+napi_value js_set_stream_selected(napi_env env, napi_callback_info info)
+{
+    size_t argc = 3;
+    napi_value argv[3];
+    napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);
+    PlayerContext *ctx = player_from_args(env, argv, argc);
+    double index = -1;
+    bool selected = false;
+    if (ctx && argc >= 3 && get_number_arg(env, argv[1], &index) &&
+        napi_get_value_bool(env, argv[2], &selected) == napi_ok)
+        ijkmp_set_stream_selected(ctx->mp, (int)index, selected);
+    return make_undefined(env);
+}
+
 napi_value js_is_playing(napi_env env, napi_callback_info info)
 {
     size_t argc = 1;
@@ -485,6 +568,8 @@ napi_value register_api(napi_env env, napi_value exports)
         {"setSpeed", nullptr, js_set_speed, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"getCurrentPosition", nullptr, js_get_current_position, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"getDuration", nullptr, js_get_duration, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"getTrackInfo", nullptr, js_get_track_info, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"setStreamSelected", nullptr, js_set_stream_selected, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"isPlaying", nullptr, js_is_playing, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"setDebug", nullptr, js_noop, nullptr, nullptr, nullptr, napi_default, nullptr},
     };

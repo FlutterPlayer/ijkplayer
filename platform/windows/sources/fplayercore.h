@@ -83,6 +83,11 @@ extern "C" {
 #define IJK_STATE_ERROR              8
 #define IJK_STATE_END                9
 
+#define IJK_TRACK_TYPE_UNKNOWN       0
+#define IJK_TRACK_TYPE_VIDEO         1
+#define IJK_TRACK_TYPE_AUDIO         2
+#define IJK_TRACK_TYPE_TIMEDTEXT     3
+
 
 #define IJK_MSG_FLUSH                       0
 #define IJK_MSG_ERROR                       100     /* arg1 = error */
@@ -131,6 +136,17 @@ typedef struct IjkFFOverlay {
     int sar_den;
 } IjkFFOverlay;
 
+typedef struct IjkFFTrackInfo {
+    int index;
+    int type;
+    int selected;
+    int sample_rate;
+    int64_t channel_layout;
+    char language[64];
+    char codec[128];
+    char codec_long_name[256];
+} IjkFFTrackInfo;
+
 typedef void(*ijkff_overlay_cb)(void *userdata, IjkFFOverlay *overlay);
 
 typedef void(*ijkff_event_cb)(void *userdata, int what, int arg1, int arg2, void *extra);
@@ -178,6 +194,10 @@ IJK_API void ijkff_set_playback_volume(IjkFFMediaPlayer *fp, float volume);
 IJK_API float ijkff_get_playback_volume(IjkFFMediaPlayer *fp);
 
 IJK_API void ijkff_set_stream_selected(IjkFFMediaPlayer *fp, int strean, bool selected);
+
+IJK_API int ijkff_get_track_info_count(IjkFFMediaPlayer *fp);
+
+IJK_API int ijkff_get_track_info(IjkFFMediaPlayer *fp, int index, IjkFFTrackInfo *info);
 
 IJK_API float ijkff_get_float_property(IjkFFMediaPlayer *fp, int property, float dfault);
 

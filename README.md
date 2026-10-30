@@ -20,9 +20,9 @@ Every tagged release publishes one version for all consumers:
 | Platform | Release asset | Downstream use |
 | --- | --- | --- |
 | Android | `fplayercore-release.aar` | Gradle AAR; also published as `io.github.flutterplayer:fplayercore:<tag>` on Maven Central |
-| iOS | `fplayercore-ios.xcframework.zip` | Swift Package XCFramework |
+| iOS | `fplayercore-ios.xcframework.zip` | [`fplayercore-ios` Swift Package](https://github.com/FlutterPlayer/fplayercore-ios) |
 | iOS (CocoaPods) | `fplayercore-ios.tar.gz` | podspec vendors the xcframework |
-| macOS | `fplayercore-macos.xcframework.zip` | Swift Package XCFramework |
+| macOS | `fplayercore-macos.xcframework.zip` | [`fplayercore-macos` Swift Package](https://github.com/FlutterPlayer/fplayercore-macos) |
 | Windows | `fplayercore-windows.zip` | `fplayercore.lib`, `fplayercore.dll`, `fplayercore.h` |
 | OpenHarmony | `fplayercore-ohos.har` | `@fplayer/fplayercore` HAR |
 | All | `fplayercore-manifest.json` | version, commit and SHA-256 of every asset |
@@ -35,9 +35,19 @@ attaches those assets to the GitHub Release. The Android job runs
 one invocation, so a successful publish closes and releases its staging
 repository instead of leaving it open. The OHOS job runs on `ubuntu-latest`,
 installs HarmonyOS command-line tools with `ErBWs/setup-ohos` (SDK
-`26.0.0.821`), builds OpenSSL/FFmpeg/native libraries and packages the HAR. Run `workflow_dispatch` with `build_ohos`
-to build the OpenHarmony HAR on a self-hosted runner and attach it to the same
-tag.
+`26.0.0.821`), builds OpenSSL/FFmpeg/native libraries and packages the HAR.
+
+Swift Package consumers use the dedicated binary package repositories:
+
+```swift
+.package(url: "https://github.com/FlutterPlayer/fplayercore-ios.git", exact: "1.2.12")
+.product(name: "fplayercore", package: "fplayercore-ios")
+```
+
+```swift
+.package(url: "https://github.com/FlutterPlayer/fplayercore-macos.git", exact: "1.2.12")
+.product(name: "fplayercore", package: "fplayercore-macos")
+```
 
 ```bash
 git tag 1.2.0

@@ -31,6 +31,8 @@
 #import <libkern/OSAtomic.h>
 #import <CoreImage/CoreImage.h>
 
+#include <string.h>
+
 typedef NS_ENUM(NSInteger, IJKSDLFFPlayrRenderType) {
     IJKSDLFFPlayrRenderTypeGlView = 0,
     IJKSDLFFPlayrRenderTypeFboView = 1,
@@ -233,6 +235,61 @@ int ff_media_player_msg_loop(void* arg)
 - (void) setStreamSelected:(int) stream selected:(BOOL) selected
 {
     ijkmp_set_stream_selected(_nativeMediaPlayer, stream, selected);
+}
+
+- (NSArray<NSDictionary<NSString *, id> *> *) getTrackInfo
+{
+    IjkMediaMeta *rawMeta = ijkmp_get_meta_l(_nativeMediaPlayer);
+    if (!rawMeta)
+        return @[];
+
+    int64_t selectedVideo = ijkmp_get_property_int64(_nativeMediaPlayer, FFP_PROP_INT64_SELECTED_VIDEO_STREAM, -1);
+    int64_t selectedAudio = ijkmp_get_property_int64(_nativeMediaPlayer, FFP_PROP_INT64_SELECTED_AUDIO_STREAM, -1);
+    int64_t selectedTimedText = ijkmp_get_property_int64(_nativeMediaPlayer, FFP_PROP_INT64_SELECTED_TIMEDTEXT_STREAM, -1);
+
+    NSMutableArray<NSDictionary<NSString *, id> *> *tracks = [NSMutableArray array];
+    ijkmeta_lock(rawMeta);
+    size_t count = ijkmeta_get_children_count_l(rawMeta);
+    for (size_t i = 0; i < count; ++i) {
+        IjkMediaMeta *streamRawMeta = ijkmeta_get_child_l(rawMeta, i);
+        if (!streamRawMeta)
+            continue;
+
+        const char *type = ijkmeta_get_string_l(streamRawMeta, IJKM_KEY_TYPE);
+        if (!type)
+            type = IJKM_VAL_TYPE__UNKNOWN;
+
+        int64_t selected = -1;
+        if (0 == strcmp(type, IJKM_VAL_TYPE__VIDEO))
+            selected = selectedVideo;
+        else if (0 == strcmp(type, IJKM_VAL_TYPE__AUDIO))
+            selected = selectedAudio;
+        else if (0 == strcmp(type, IJKM_VAL_TYPE__TIMEDTEXT))
+            selected = selectedTimedText;
+
+        NSMutableDictionary<NSString *, id> *track = [NSMutableDictionary dictionary];
+        track[@"index"] = @(i);
+        track[@"type"] = [NSString stringWithUTF8String:type];
+        track[@"selected"] = @(selected == (int64_t)i);
+
+        const char *language = ijkmeta_get_string_l(streamRawMeta, IJKM_KEY_LANGUAGE);
+        if (language)
+            track[@"language"] = [NSString stringWithUTF8String:language];
+        const char *codec = ijkmeta_get_string_l(streamRawMeta, IJKM_KEY_CODEC_NAME);
+        if (codec)
+            track[@"codec"] = [NSString stringWithUTF8String:codec];
+        const char *codecLongName = ijkmeta_get_string_l(streamRawMeta, IJKM_KEY_CODEC_LONG_NAME);
+        if (codecLongName)
+            track[@"codec_long_name"] = [NSString stringWithUTF8String:codecLongName];
+
+        if (0 == strcmp(type, IJKM_VAL_TYPE__AUDIO)) {
+            track[@"sample_rate"] = @(ijkmeta_get_int64_l(streamRawMeta, IJKM_KEY_SAMPLE_RATE, 0));
+            track[@"channel_layout"] = @(ijkmeta_get_int64_l(streamRawMeta, IJKM_KEY_CHANNEL_LAYOUT, 0));
+        }
+        [tracks addObject:track];
+    }
+    ijkmeta_unlock(rawMeta);
+    return tracks;
 }
 
 - (float) getFloatProperty:(int) property defalut:(float) value

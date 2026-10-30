@@ -5,6 +5,17 @@ export interface PlayerMessage {
   obj: string;
 }
 
+export interface PlayerTrack {
+  index: number;
+  type: string;
+  selected: boolean;
+  language: string;
+  codec: string;
+  codec_long_name: string;
+  sample_rate: number;
+  channel_layout: number;
+}
+
 export function create(id: string): void;
 export function release(id: string): void;
 export function setSurfaceId(id: string, surfaceId: number): void;
@@ -23,5 +34,7 @@ export function setLoopCount(id: string, loopCount: number): void;
 export function setSpeed(id: string, speed: string): void;
 export function getCurrentPosition(id: string): number;
 export function getDuration(id: string): number;
+export function getTrackInfo(id: string): PlayerTrack[];
+export function setStreamSelected(id: string, index: number, selected: boolean): void;
 export function isPlaying(id: string): boolean;
 export function setDebug(id: string, open: boolean): void;

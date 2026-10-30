@@ -25,6 +25,8 @@ import {
   setSpeed,
   getCurrentPosition,
   getDuration,
+  getTrackInfo,
+  setStreamSelected,
   isPlaying,
   setDebug
 } from 'libijkplayer_napi.so';
@@ -38,6 +40,17 @@ export interface PlayerMessage {
 
 export interface OnMessageCallback {
   onMessage(what: number, arg1: number, arg2: number, obj: string): void;
+}
+
+export interface PlayerTrack {
+  index: number;
+  type: string;
+  selected: boolean;
+  language: string;
+  codec: string;
+  codec_long_name: string;
+  sample_rate: number;
+  channel_layout: number;
 }
 
 export class IjkMediaPlayer {
@@ -119,6 +132,14 @@ export class IjkMediaPlayer {
 
   getDuration(): number {
     return getDuration(this.id);
+  }
+
+  getTrackInfo(): PlayerTrack[] {
+    return getTrackInfo(this.id);
+  }
+
+  selectTrack(index: number, selected: boolean): void {
+    setStreamSelected(this.id, index, selected);
   }
 
   isPlaying(): boolean {

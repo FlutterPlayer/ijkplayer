@@ -25,11 +25,15 @@
 #include "fplayercore.h"
 #include "ijkplayer/windows/pipeline_windows.h"
 #include "ijkplayer/ff_ffmsg_queue.h"
+#include "ijkplayer/ijkmeta.h"
 
 #include "libavutil/imgutils.h"
 #include "libavutil/mem.h"
 #include "libavutil/pixfmt.h"
 #include "libswscale/swscale.h"
+
+#include <stdio.h>
+#include <string.h>
 
 
 struct IjkFFMediaPlayer {
@@ -197,6 +201,74 @@ void ijkff_set_stream_selected(IjkFFMediaPlayer *fp, int strean, bool selected)
 {
     assert(fp);
     ijkmp_set_stream_selected(fp->mp, strean, selected);
+}
+
+int ijkff_get_track_info_count(IjkFFMediaPlayer *fp)
+{
+    assert(fp);
+    IjkMediaMeta *meta = ijkmp_get_meta_l(fp->mp);
+    if (!meta)
+        return -1;
+
+    ijkmeta_lock(meta);
+    int count = (int)ijkmeta_get_children_count_l(meta);
+    ijkmeta_unlock(meta);
+    return count;
+}
+
+int ijkff_get_track_info(IjkFFMediaPlayer *fp, int index, IjkFFTrackInfo *info)
+{
+    assert(fp);
+    if (!info || index < 0)
+        return -1;
+
+    IjkMediaMeta *meta = ijkmp_get_meta_l(fp->mp);
+    if (!meta)
+        return -1;
+
+    int ret = -1;
+    ijkmeta_lock(meta);
+    if (index >= (int)ijkmeta_get_children_count_l(meta))
+        goto done;
+
+    IjkMediaMeta *stream = ijkmeta_get_child_l(meta, (size_t)index);
+    if (!stream)
+        goto done;
+
+    const char *type = ijkmeta_get_string_l(stream, IJKM_KEY_TYPE);
+    if (!type)
+        type = IJKM_VAL_TYPE__UNKNOWN;
+
+    int64_t selected = -1;
+    if (0 == strcmp(type, IJKM_VAL_TYPE__VIDEO)) {
+        info->type = IJK_TRACK_TYPE_VIDEO;
+        selected = ijkmp_get_property_int64(fp->mp, FFP_PROP_INT64_SELECTED_VIDEO_STREAM, -1);
+    } else if (0 == strcmp(type, IJKM_VAL_TYPE__AUDIO)) {
+        info->type = IJK_TRACK_TYPE_AUDIO;
+        selected = ijkmp_get_property_int64(fp->mp, FFP_PROP_INT64_SELECTED_AUDIO_STREAM, -1);
+    } else if (0 == strcmp(type, IJKM_VAL_TYPE__TIMEDTEXT)) {
+        info->type = IJK_TRACK_TYPE_TIMEDTEXT;
+        selected = ijkmp_get_property_int64(fp->mp, FFP_PROP_INT64_SELECTED_TIMEDTEXT_STREAM, -1);
+    } else {
+        info->type = IJK_TRACK_TYPE_UNKNOWN;
+    }
+
+    info->index = index;
+    info->selected = selected == index ? 1 : 0;
+    info->sample_rate = (int)ijkmeta_get_int64_l(stream, IJKM_KEY_SAMPLE_RATE, 0);
+    info->channel_layout = ijkmeta_get_int64_l(stream, IJKM_KEY_CHANNEL_LAYOUT, 0);
+
+    const char *language = ijkmeta_get_string_l(stream, IJKM_KEY_LANGUAGE);
+    const char *codec = ijkmeta_get_string_l(stream, IJKM_KEY_CODEC_NAME);
+    const char *codec_long_name = ijkmeta_get_string_l(stream, IJKM_KEY_CODEC_LONG_NAME);
+    snprintf(info->language, sizeof(info->language), "%s", language ? language : "");
+    snprintf(info->codec, sizeof(info->codec), "%s", codec ? codec : "");
+    snprintf(info->codec_long_name, sizeof(info->codec_long_name), "%s", codec_long_name ? codec_long_name : "");
+    ret = 0;
+
+done:
+    ijkmeta_unlock(meta);
+    return ret;
 }
 
 float ijkff_get_float_property(IjkFFMediaPlayer *fp, int property, float dfault)
